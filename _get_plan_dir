@@ -1,0 +1,7 @@
+p_dir="$PWD"
+while test "$p_dir" != ""
+do
+    test -d "$p_dir/.plans" && break || p_dir=${p_dir%/*}
+done
+test -z "$p_dir" && p_dir="$HOME"
+echo "$p_dir/.plans"
