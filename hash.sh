@@ -36,47 +36,47 @@ _match_key () {
         for k in $(_list_hkeys $h | grep "$key_match")
         do 
             grep -q "$match" $(_get_hkey $h $k) || continue
-            echo $h 
+            echo $h $k $(_get_key $h $k | head -n1 | cut -c-33) 
         done
     done
 }
 
 
-_unary () {
+_parse_key () {
     test -z "$1" && return 1
-    cmd=$1; shift
-    h=$1
+    local hash=$1
+    local n=${2:-'.*'}
+    local key=''
+    case "$n" in
+    +*)
+        key=$(echo "$n" | cut -c2-)
+        _get_key $1 "$key" >/dev/null
+        ;;
+    *)
+        key=$(_list_hkeys $hash | grep "^$n\$")
+        ;;
+    esac
+    _return_parse "$key" "$n"
+}
+
+_parse_hash () {
+    local hash=''
+    local h=$1
     test -n "$h" && shift
     case "$h" in
     *:*) # key:match
-        key=$(echo $h | cut -d':' -f1)
-        match=$(echo $h | cut -d':' -f2)
-        hash=$(_match_key "$key" "$match")
+        local key=$(echo $h | cut -d':' -f1)
+        local match=$(echo $h | cut -d':' -f2)
+        hash=$(_match_key "$key" "$match" )
         ;;
-    .*)  # new hash, .name
+    +*)  # new hash, .name
         hash=$(_new_hash $(echo "$h" | cut -c2-))
         ;;
     *)   # prefix hash match
         hash=$(_match_hash $h)
         ;;
     esac
-    case $(echo "$hash" | wc -l) in
-    1)
-        $cmd $hash "$@"
-        return 0
-        ;;
-    0)
-        echo no hash matching: $h
-        return 1
-        ;;
-    *)
-        for h in $hash
-        do
-            echo $h $(_get_key $h $MKEY)
-        done
-        return 23
-        ;;
-    esac
+    _return_parse "$hash" "$h"
 }
 
 _get_hdir() {  
@@ -98,6 +98,7 @@ _new_hash () {
     test -z "$1" && { echo provide a name; return 1 ;}
     hash=$(_gen_hash)
     echo $* >$(_get_hkey $hash name)
+    date -Ins >$(_get_hkey $hash creation_time)
     echo $hash
 }
 
@@ -132,31 +133,41 @@ case "$1" in
     _D=./.hash
     ;;
 esac
-MKEY=name
+
+. ./config.sh
+
 cmd=key
 test -n "$1" && { cmd=$1; shift ;}
-
 case "$cmd" in
 id)
-    _unary echo "$1"
+    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    printf '%s\n' $hash 
     ;;
-delete)  # hash-prefix
-    _unary _rm_hash "$@"
+delete)
+    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    _rm_hash $hash
     ;;
-key)  # hash-prefix -> raw data at key
-    _unary _get_key "$@"
+key)
+    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    _get_key $hash "$key"
     ;;
-keys)  # hash-prefix -> raw data at key
-    _unary _list_hkeys "$@"
+set)  
+    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    _set_key $hash "$key"
     ;;
-set)  # hash-prefix
-    _unary _set_key "$@"
+edit)
+    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    _edit_key $hash "$key"
     ;;
-edit)  # hash-prefix 
-    _unary _edit_key "$@"
+parse-hash)
+    _parse_hash "$1"
     ;;
-look)  # value-match key-match
-    _match_key "$@"
+parse-key)
+    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    _parse_key $hash "$2"
     ;;
 *)  # this help
     echo you are currently helpless

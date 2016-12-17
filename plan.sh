@@ -1,6 +1,6 @@
 #!/bin/sh
-# # # # # # plans:
-# 
+
+# alt-right is dada
 # sregex
 # tree
 # haskell book
@@ -10,22 +10,8 @@
 # disciplined
 # drum patterns
 # structures
-# 
-#     # <plan action>: <what plan action determines>
-# sregex:
-#     - intent: implement sre for pipelines
-#     - milestones: {ui, data model, operations}
-#     - procedure: {filesystem, key-val, rdbms} -> ui
-#                  {extract, yank, substitute...} -> operations
-#     -> recurse
-# 
-# disciplined:
-#     - intent: maintain habitual behavior beneficial to mind and body
-#     - milestones: {plan set, 10 days, 30 days, 90 days, year}
-#     - procedure: {attempt simple plan, modify plan if wanted } -> plan set
-#                  {calendar marking, journal, reward} -> 10 day               
-#     -> recurse
-# 
+ 
+
 # $ plan new-ref sregex _sregex  
 # af12aac233... # hash of new plan with name and reference "sregex"
 # $ plan open sregex # sets "sregex" as current plan
@@ -55,85 +41,66 @@
 #     value -- regex
 # 
 
-# state
-#     - current plan -- global
-#     - milestones -- union of global and local
-#     - plan dirs -- union of global and local
-#     - stash -- global ;; references current plan 
-#     - history -- global ;; references current plan 
-#     - refs -- union of global refs and plan refs
-# 
-# 
-#     global config 
-#         ~/.plans
-#     local config
-#         pwd upwards to nearest .plans dir
+_match_name () {
+    local match=$1
+    local name=$(ls $(_get_plan_dir)/refs | grep ${match:-'.*'})
+    for n in $name
+    do
+        echo $(_get_ref $n) $n
+    done
+}
+
+_match_history () {
+    local match=$1
+    cat $(_get_plan_dir)/history | grep ${match:-'.*'}
+}
+
+_get_parents () {
+    local hash=$1
+    for h in $($HASH_X id '' | cut -d' ' -f1)
+    do
+        $DATA_X lrange $h +__procedure__ | grep -q $1 && echo $h $($HASH_X key $h name)
+    done
+}
   
-_unary () {
-    test -z "$1" && return 1
-    local cmd=$1; shift
-    local h=$1
+_parse_plan () {
     local hash=''
+    local h=$1
     test -n "$h" && shift
     case "$h" in
+    .)
+        hash=$(_get_ref __open__)
+        ;;
     n.*)  # ref-name
         local match=$(echo $h | cut -c3-)
-        local names=$(ls $($PDIR_X)/refs | grep ${match:-'.*'})
-        if test $(echo "$names" | wc -l) -eq 1
-        then
-            hash=$(cat $($PDIR_X)/refs/${names})
-        else
-            for n in $names
-            do
-                hash=$(printf '%s\n%17.17s%43.43s\n' "$hash" $n $(_get_ref $n))
-            done
-        fi
+        hash=$(_match_name $match)
         ;;
     h.*)  # history
-        echo foo
-        ;;
-    p.*)  # parents
-        echo foo
+        local match=$(echo $h | cut -c3-)
+        hash=$(_match_history $match)
         ;;
     s.*)  # stash
         echo foo
         ;;
-    *)   # pass to plan
+    *)   # pass to hash
         hash=$($HASH_X id $h)
         ;;
     esac
-    case $(echo "$hash" | wc -l) in
-    1)
-        $cmd $hash "$@" && echo $cmd $hash "$@" >>$($PDIR_X)/history
-        ;;
-    *)
-        echo "$hash"
-        ;;
-    esac
-    return 0
+    _return_parse "$hash" "$h"    
 }
 
 
 _set_ref () {
     test -z "$2" && echo must provide name && return 1
-    local P=$($PDIR_X)
-    echo $1 >"$P/refs/$2"
+    echo $1 >"$(_get_plan_dir)/refs/$2"
 }
 
 _get_ref () {
-    local P=$($PDIR_X)
+    local P=$(_get_plan_dir)
     test -f "$P/refs/$1" || return 1
     cat "$P/refs/$1"
     return 0
 }
-
-_init_plan_dir () {
-    test -n "$1" || { echo must provide directory argument; return 1 ;}
-    test -e "$1" && { echo $1 already exists; return 1 ;}
-    mkdir -p "$1/refs"  # name -> hash
-    mkdir -p "$1/scratch"  # <name of open>/<datetime> -> string
-}
-
 
 . ./config.sh
 
@@ -144,37 +111,55 @@ init)
     _init_plan_dir "$PWD/.plans"
     ;;
 open) 
-    _unary _set_ref $1 __open__
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    _set_ref $hash __open__
     ;;
 name)
-    _unary _set_ref $1 "$2"
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    _set_ref $hash "$2"
     ;;
 intent)
-    _unary "$HASH_X edit" $1 __intent__
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    $HASH_X edit $hash __intent__
     ;;
 milestone)
-    _unary _set_add "$1" __milestone__
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    $DATA_X sadd $(_get_ref __open__) $hash +__milestone__
     ;;
 add)
-    _unary _zipper_add "$1" __procedure__
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    $DATA_X linsert $(_get_ref __open__) $hash +__procedure__
     ;;
 advance)
-    _zipper_set_idx $(_get_ref __open__) __procedure__ $1
+    $DATA_X lpos $(_get_ref __open__) +__procedure__ $1
+    ;;
+parents)
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    _get_parents $hash
+    ;;
+stash)
+    sdir=$(_get_plan_dir)/stash/$($HASH_X key $(_get_ref __open__) name)
+    mkdir -p "$sdir"
+    echo $@ >>"$sdir/$(date -Iseconds)"
+    ;;
+organize)
+    local tmp=$(mktemp)
+    for h in $($DATA_X lrange $(_get_ref __open__) +__procedure__)
+    do
+        echo $h $($HASH_X key $h $name) >>$tmp
+    done
+    $EDITOR $tmp
     ;;
 display)
     echo
-    ;;
-stash)
-    echo foo
-    ;;
-organize)
-    echo foo
     ;;
 help)
     echo you are currently helpless
     ;;
 *)
-    _unary "$HASH_X $cmd" "$@"
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    shift
+    $HASH_X $cmd $hash "$@"
     ;;
 esac
 
