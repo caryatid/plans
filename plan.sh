@@ -57,7 +57,7 @@ _match_history () {
 
 _get_parents () {
     local hash=$1
-    for h in $($HASH_X id '' | cut -d' ' -f1)
+    for h in $($HASH_X list-hashes)
     do
         $DATA_X lrange $h +__procedure__ | grep -q $1 && echo $h $($HASH_X key $h name)
     done
@@ -65,7 +65,7 @@ _get_parents () {
   
 _parse_plan () {
     local hash=''
-    local h=$1
+    local h="$1"
     test -n "$h" && shift
     case "$h" in
     .)
@@ -83,7 +83,7 @@ _parse_plan () {
         echo foo
         ;;
     *)   # pass to hash
-        hash=$($HASH_X id $h)
+        hash=$($HASH_X id "$h")
         ;;
     esac
     _return_parse "$hash" "$h"    
@@ -102,11 +102,35 @@ _get_ref () {
     return 0
 }
 
+_to_list () {
+    local hash=$1
+    local pre=${2:-'>'}
+    local status=${3:-mi}
+    local tmp=${4:-$(mktemp)}
+    local dumb_var=${5:-''}
+    local key=$($HASH_X key $hash name)
+    if grep -q $hash $tmp
+    then
+        echo ["$status"] "$pre" ["$key"]
+    else
+        echo ["$status"] "$pre" "$key"
+    fi
+    echo $hash >>$tmp
+    for h in $($DATA_X lrange $hash +__procedure__)
+    do
+        local m=-; local i=-
+        test -n "$($DATA_X sin $hash $h +__milestone__)" && m=x
+        test $h = "$($DATA_X lindex $hash +__procedure__)" && i=x
+        _to_list $h ..$pre $m$i $tmp x
+    done
+    test -n "$dumb_var" || rm $tmp
+}
+        
+    
 . ./config.sh
 
-cmd=intent
 test -n "$1" && { cmd=$1; shift ;}
-case $cmd in
+case ${cmd:-''} in
 init) 
     _init_plan_dir "$PWD/.plans"
     ;;
@@ -120,41 +144,49 @@ name)
     ;;
 intent)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $HASH_X edit $hash __intent__
+    $HASH_X edit $hash +__intent__
     ;;
 milestone)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $DATA_X sadd $(_get_ref __open__) $hash +__milestone__
+    thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
+    shash=$(_parse_plan "$2") || _err_multi hash "$shash" $?
+    $DATA_X sadd $thash $shash +__milestone__
     ;;
 add)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $DATA_X linsert $(_get_ref __open__) $hash +__procedure__
+    thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
+    shash=$(_parse_plan "$2") || _err_multi hash "$shash" $?
+    $DATA_X linsert $thash $shash +__procedure__
     ;;
 advance)
-    $DATA_X lpos $(_get_ref __open__) +__procedure__ $1
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    $DATA_X lpos $hash +__procedure__ $2
     ;;
 parents)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
     _get_parents $hash
     ;;
 stash)
-    sdir=$(_get_plan_dir)/stash/$($HASH_X key $(_get_ref __open__) name)
-    mkdir -p "$sdir"
-    echo $@ >>"$sdir/$(date -Iseconds)"
+    echo not implemented
     ;;
 organize)
-    local tmp=$(mktemp)
-    for h in $($DATA_X lrange $(_get_ref __open__) +__procedure__)
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    tmp=$(mktemp)
+    for h in $($DATA_X lrange $hash +__procedure__)
     do
-        echo $h $($HASH_X key $h $name) >>$tmp
+        echo $h $($HASH_X key $h name) >>$tmp
     done
     $EDITOR $tmp
+    cat $tmp | cut -d' ' -f1 | $HASH_X set $hash __procedure__
     ;;
 display)
-    echo
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    _to_list $hash
     ;;
 help)
     echo you are currently helpless
+    ;;
+'')
+    hash=$(_parse_plan ".") || _err_multi hash "$hash" $?
+    _to_list $hash
     ;;
 *)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
@@ -163,29 +195,3 @@ help)
     ;;
 esac
 
-
-# _graph () {
-#     local pre="$2"
-#     local parent="$3"
-#     local S=''
-#     local F=''
-#     local seen=''
-#     n=$(_get_key $1 name)
-#     if test -z "$pre"
-#     then
-#         echo $1 >"$_D/seen"
-#         echo $n
-#     else
-#         _pre=${pre%????}
-#         grep -q $p "$_D/seen" && seen=x
-#         test "$(_get_focus $parent)" == $1 && F='>'
-#         test $(_get_key $1 status) -gt 0 && S='x'
-#         echo "${_pre}-${S:--}${F:--} ${seen:+[}$n${seen:+]}"
-#         test "$seen" == x && return 0
-#     fi
-#     for p in $(_get_key $1 procedure)
-#     do
-#         _graph $p "$pre|...." $1
-#     done
-# }
-# 

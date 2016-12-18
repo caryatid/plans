@@ -61,7 +61,7 @@ _parse_key () {
 
 _parse_hash () {
     local hash=''
-    local h=$1
+    local h="$1"
     test -n "$h" && shift
     case "$h" in
     *:*) # key:match
@@ -71,6 +71,9 @@ _parse_hash () {
         ;;
     +*)  # new hash, .name
         hash=$(_new_hash $(echo "$h" | cut -c2-))
+        ;;
+    =*)  # new hash, .name
+        hash=$(echo "$h" | cut -c2-)
         ;;
     *)   # prefix hash match
         hash=$(_match_hash $h)
@@ -97,7 +100,7 @@ _get_hkey() {
 _new_hash () {
     test -z "$1" && { echo provide a name; return 1 ;}
     hash=$(_gen_hash)
-    echo $* >$(_get_hkey $hash name)
+    echo "$@" >$(_get_hkey $hash name)
     date -Ins >$(_get_hkey $hash creation_time)
     echo $hash
 }
@@ -123,7 +126,6 @@ _set_key () {
     cat - >"$(_get_hkey $1 $2)"
 }
 
-
 case "$1" in
 -D*)
     _D="${1#-D}"
@@ -136,9 +138,13 @@ esac
 
 . ./config.sh
 
+
 cmd=key
 test -n "$1" && { cmd=$1; shift ;}
 case "$cmd" in
+list-hashes)
+    _parse_hash ''
+    ;;
 id)
     hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
     printf '%s\n' $hash 

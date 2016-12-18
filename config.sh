@@ -8,7 +8,7 @@ _return_parse () {
         return 0
         ;;
     0)
-        echo nothing matches, "$2"
+        printf 'no matches to provided pattern:\n%s' "$2"
         return 1
         ;;
     *)
@@ -21,7 +21,9 @@ _return_parse () {
 _err_multi () {
 #    printf '%s choices:\n' "$1"  
     echo "$2" | tr '\n' '\0' | xargs -0 -L1 printf '  %s\n'
-    exit ${3:-1}
+    local ret=${3:-1}
+    if test $ret -ne 0; then exit $ret; fi
+    return $ret
 }
 
 _get_plan_dir () {
