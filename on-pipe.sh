@@ -1,6 +1,4 @@
-# input of hash <other shit> on stdin
-# args is just command on hash
-
+#!/bin/sh
 
 cmd=${1:-id}
 test -n "$1" && shift

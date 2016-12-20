@@ -10,7 +10,7 @@ _gen_hash() {
 }
 
 _list_hashes () {
-    find "$_D" -type d | grep '../.\{38\}$' | sed "s#$_D##" | sed "s#/##g" | uniq
+    find "$_D" -type d | grep -o '../.\{38\}$' | tr -d '/'
 }
 
 _list_hkeys () {
@@ -22,7 +22,7 @@ _match_hash () {
     do
         case $h in
         $1*)
-            echo $h
+            echo $h $(_get_key $h $name)
             ;;
         esac
     done
@@ -143,7 +143,7 @@ cmd=key
 test -n "$1" && { cmd=$1; shift ;}
 case "$cmd" in
 list-hashes)
-    _parse_hash ''
+    _list_hashes
     ;;
 id)
     hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?

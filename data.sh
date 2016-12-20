@@ -34,9 +34,10 @@ _verify_data () {
     local hash=$1
     local name=$2
     local tmp=$(mktemp)
-    local exists=$($HASH_X id | xargs -L1)
+    local exists=$($HASH_X list-hashes)
     _set_get $hash $name | grep -e"$exists" >$tmp
-    cat $tmp | $HASH_X set =$hash $name
+    $HASH_X set =$hash $name <$tmp
+    rm $tmp
 }
         
     
@@ -79,6 +80,19 @@ _set_member () {
     fi
 }
 
+_set_interpreter () {
+    local hash=$1; local name=$2
+    $HASH_X set =$hash +$name.x
+}
+
+_execute () {
+    local hash=$1; local name=$2
+    local interpreter=$($HASH_X key =$hash +$name.x)
+    interpreter=${interpreter:-sh}
+    $HASH_X key =$hash +$name | $interpreter
+}
+    
+    
 _list_set_index () {
     local hash=$1; local name=$2; local idx="$3"
     echo $idx | $HASH_X set =$hash +$name.i
@@ -134,7 +148,7 @@ sadd)
     key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
     _set_add $thash $shash $key
     ;;
-sin)
+slin)
     thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
     shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
     key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
@@ -184,10 +198,25 @@ lrange)
     eidx=$(_parse_list_idx $hash $key "${4:-]1[}") || _err_multi "end idx" "$eidx" $?
     _list_range $hash $key $sidx $eidx
     ;;
+verify)
+    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
+    _verify_data $hash __procedure__
+    _verify_data $hash __milestone__
+    ;;
 llen)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
     key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     _list_len $hash $key
+    ;;
+set-interpreter)
+    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    _set_interpreter $hash $key
+    ;;
+execute)
+    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    _execute $hash $key
     ;;
 parse-list)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
