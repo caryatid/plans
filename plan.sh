@@ -71,8 +71,10 @@ _rm_ref () {
 _get_status () {
     local hash=$1
     local s=$($HASH_X key =$hash +__status__)
-    echo $s | grep -qi true && echo $s && return 0
-    echo $s && return 1
+    echo $s
+    echo $s | grep -qi '^t' && return 0
+    echo $s | grep -qi '^f' && return 2
+    return 1
 }
 
 _gen_status () {
@@ -81,7 +83,15 @@ _gen_status () {
     local m=-; local i=-; local s=-;
     test -n "$($DATA_X slin =$parent =$hash +__milestone__)" && m=x
     test $hash = "$($DATA_X lindex =$parent +__procedure__)" && i=o
-    _get_status $hash >/dev/null && s=x
+    _get_status $hash >/dev/null
+    case $? in
+    0)
+        s=o
+        ;;
+    2)
+        s=x
+        ;;
+    esac
     echo \[${m}${i}\[${s}\]
 }
     
@@ -163,6 +173,7 @@ set-status)
     ;;
 status)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    _get_status $hash
     ;;
 milestone)
     thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
@@ -207,7 +218,7 @@ organize)
     ;;
 display)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    _to_list $hash 
+    _to_list $hash $2
     ;;
 tops)
     tmp=$(mktemp)
