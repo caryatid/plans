@@ -72,7 +72,7 @@ _parse_hash () {
     +*)  # new hash, .name
         hash=$(_new_hash $(echo "$h" | cut -c2-))
         ;;
-    =*)  # new hash, .name
+    =*)  # use this hash exactly as is ( no parsing )
         hash=$(echo "$h" | cut -c2-)
         ;;
     *)   # prefix hash match

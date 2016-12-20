@@ -12,10 +12,11 @@ _parse_list_idx () {
         idx=$(echo $new_idx | grep -o '[^][+]' | xargs printf '%s')
         ;;
     \]*\[)  # from end
-        idx=$(( $max + 1 - $(echo $new_idx | grep -o '[^][+]') ))
+        idx=$(( $max + 1 - $(echo $new_idx | grep -o '[^][+]' | \
+                xargs printf '%s') ))
         ;;
     +*)  # from index
-        idx=$(( $idx + $(echo $new_idx | grep -o '[^][+]') ))
+        idx=$(( $idx + $(echo $new_idx | grep -o '[^][+]' | xargs printf '%s') ))
         ;;
     '')  # idx +1
         idx=$(( $idx + 1 ))
@@ -29,10 +30,19 @@ _parse_list_idx () {
     printf '%s\n' $idx
 }
 
-_set_get () {
+_verify_data () {
     local hash=$1
     local name=$2
     local tmp=$(mktemp)
+    local exists=$($HASH_X id | xargs -L1)
+    _set_get $hash $name | grep -e"$exists" >$tmp
+    cat $tmp | $HASH_X set =$hash $name
+}
+        
+    
+_set_get () {
+    local hash=$1
+    local name=$2
     $HASH_X key =$hash $name 
 }
 
@@ -47,7 +57,7 @@ _set_add () {
     rm $tmp
 }
 
-_set_rem () {
+_set_list_rem () {
     local thash=$1
     local shash=$2
     local name=$3
@@ -56,6 +66,7 @@ _set_rem () {
     cat $tmp | grep -v $shash | $HASH_X set =$thash $name
     rm $tmp
 }
+
 _set_member () {
     local thash=$1
     local shash=$2
@@ -72,6 +83,11 @@ _list_set_index () {
     local hash=$1; local name=$2; local idx="$3"
     echo $idx | $HASH_X set =$hash +$name.i
     echo $idx
+}
+
+_list_find () {
+    local thash=$1; local shash=$2; local name=$3
+    $HASH_X key =$thash +$name | grep -n $shash | cut -d':' -f1
 }
 
 _list_insert () {
@@ -109,7 +125,7 @@ test -n "$1" && { cmd=$1; shift ;}
 case $cmd in 
 smembers)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     _set_get $hash $key
     ;;
 sadd)
@@ -121,55 +137,61 @@ sadd)
 sin)
     thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
     shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
     _set_member $thash $shash $key
     exit $?
     ;;
-srem)
+slrem)
     thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
     shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
     key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
-    _set_rem $thash $shash $key
+    _set_list_rem $thash $shash $key
     ;;
 scard)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     _set_get $hash $key | wc -l
     ;;
 lpos)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
-    idx=$(_parse_list_idx $hash $key "${3:-+0}") || _err_multi idx "$idx" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    idx=$(_parse_list_idx $hash $key "$3") || _err_multi idx "$idx" $?
     _list_set_index $hash $key "$idx"
     ;;
 lindex)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     idx=$(_parse_list_idx $hash $key "${3:-+0}") || _err_multi idx "$idx" $?
     _list_index $hash $key $idx
     ;;
 linsert)
     thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
     shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
     idx=$(_parse_list_idx $thash $key "${4:-+0}") || _err_multi idx "$idx" $?
     _list_insert $thash $shash $key $idx
     ;;
+lfind)
+    thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
+    shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
+    key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
+    _list_find $thash $shash $key
+    ;;
 lrange)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     sidx=$(_parse_list_idx $hash $key "${3:-[0]}") || _err_multi "start idx" "$sidx" $?
     eidx=$(_parse_list_idx $hash $key "${4:-]1[}") || _err_multi "end idx" "$eidx" $?
     _list_range $hash $key $sidx $eidx
     ;;
 llen)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     _list_len $hash $key
     ;;
 parse-list)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key $hash "$2") || _err_multi key "$key" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     _parse_list_idx $hash $key $3
     ;;
 *)
