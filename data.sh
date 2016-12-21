@@ -1,4 +1,7 @@
-_parse_list_idx () {
+#!/bin/sh
+
+### parsing
+_parse_list_idx () {  # Hash -> Name -> IdxQ -> ParseReturn
     test -z "$1" && echo must provide hash && return 1
     local hash=$1
     test -z "$2" && echo must provide name && return 1
@@ -27,27 +30,47 @@ _parse_list_idx () {
     esac
     test $idx -lt 0 && idx=0
     test $idx -gt $max && idx=$max
-    printf '%s\n' $idx
+    _return_parse "$idx" "$new_idx"
 }
 
-_verify_data () {
-    local hash=$1
-    local name=$2
-    local tmp=$(mktemp)
-    local exists=$($HASH_X list-hashes)
-    _set_get $hash $name | grep -e"$exists" >$tmp
-    $HASH_X set =$hash $name <$tmp
-    rm $tmp
-}
-        
+### query
+
+_set_list_find () {  # Hash -> Hash -> Key -> Maybe Idx
+    local thash=$1; local shash=$2; local name=$3
+    local idx=$($HASH_X key =$thash +$name | grep -n $shash | cut -d':' -f1)
+    test -z "$idx" && return 1
+    echo $idx
+    return 0
+} 
     
-_set_get () {
+_list_range () {  # Hash -> Key -> IdxQ -> IdxQ -> [Hash]
+    local hash=$1; local name=$2; local lower=$3; local upper=$4
+    test $lower -eq 0 && lower=1
+    sed_e=$(printf '%s,%sp' $lower "$upper")
+    $HASH_X key =$hash +$name | sed -n "$sed_e"
+}
+
+_list_index () {  # Hash -> Key -> IdxQ -> Hash
+    local hash=$1; local name=$2; local index=$3
+    test $index -eq 0 && index=1
+    sed_e=$(printf '%sp' $index)
+    $HASH_X key =$hash +$name | sed -n "$sed_e"
+}
+
+_list_len () {  # Hash -> Key -> Int
+    local hash=$1; local name=$2
+    $HASH_X key =$hash +$name | wc -l
+}
+    
+
+### operations
+_set_get () {  # Hash -> Key -> [Hash]
     local hash=$1
     local name=$2
     $HASH_X key =$hash $name 
 }
 
-_set_add () {
+_set_add () {  # Hash -> Hash -> Key -> Bool
     local thash=$1
     local shash=$2
     local name=$3
@@ -58,7 +81,16 @@ _set_add () {
     rm $tmp
 }
 
-_set_list_rem () {
+_list_insert () {  # Hash -> Hash -> Key -> IdxQ -> Bool
+    local thash=$1; local shash=$2; local name=$3; local idx=$4
+    local tmp=$(mktemp)
+    $HASH_X key =$thash +$name >$tmp
+    echo $(head -n$idx $tmp) $shash $(tail -n+$(( $idx + 1 )) $tmp) | tr ' ' '\n' \
+        | $HASH_X set =$thash $name
+    rm $tmp
+}
+
+_set_list_rem () {  # Hash -> Hash -> Key -> Bool
     local thash=$1
     local shash=$2
     local name=$3
@@ -68,68 +100,32 @@ _set_list_rem () {
     rm $tmp
 }
 
-_set_member () {
-    local thash=$1
-    local shash=$2
-    local name=$3
-    if $HASH_X key =$thash $name | grep $shash
-    then
-        return 0
-    else
-        return 1
-    fi
+_list_set_index () {  # Hash -> Key -> IdxQ -> Idx
+    local hash=$1; local name=$2; local idx="$3"
+    echo $idx | $HASH_X set =$hash +$name.i
+    echo $idx
 }
 
-_set_interpreter () {
+_exe_set_interpreter () {  # Hash -> Key -> Bool
     local hash=$1; local name=$2
     $HASH_X set =$hash +$name.x
 }
 
-_execute () {
+_execute () {  # Hash -> Key -> ?Exe?
     local hash=$1; local name=$2
     local interpreter=$($HASH_X key =$hash +$name.x)
     interpreter=${interpreter:-sh}
     $HASH_X key =$hash +$name | $interpreter
 }
     
-    
-_list_set_index () {
-    local hash=$1; local name=$2; local idx="$3"
-    echo $idx | $HASH_X set =$hash +$name.i
-    echo $idx
-}
-
-_list_find () {
-    local thash=$1; local shash=$2; local name=$3
-    $HASH_X key =$thash +$name | grep -n $shash | cut -d':' -f1
-}
-
-_list_insert () {
-    local thash=$1; local shash=$2; local name=$3; local idx=$4
+_verify_data () {  # Hash -> Key -> Bool
+    local hash=$1
+    local name=$2
     local tmp=$(mktemp)
-    $HASH_X key =$thash +$name >$tmp
-    echo $(head -n$idx $tmp) $shash $(tail -n+$(( $idx + 1 )) $tmp) | tr ' ' '\n' \
-        | $HASH_X set =$thash $name
+    local exists=$($HASH_X list-hashes)
+    _set_get $hash $name | grep -e"$exists" >$tmp
+    $HASH_X set =$hash $name <$tmp
     rm $tmp
-}
-
-_list_range () {
-    local hash=$1; local name=$2; local lower=$3; local upper=$4
-    test $lower -eq 0 && lower=1
-    sed_e=$(printf '%s,%sp' $lower "$upper")
-    $HASH_X key =$hash +$name | sed -n "$sed_e"
-}
-
-_list_index () {
-    local hash=$1; local name=$2; local index=$3
-    test $index -eq 0 && index=1
-    sed_e=$(printf '%sp' $index)
-    $HASH_X key =$hash +$name | sed -n "$sed_e"
-}
-
-_list_len () {
-    local hash=$1; local name=$2
-    $HASH_X key =$hash +$name | wc -l
 }
 
 . ./config.sh
@@ -148,13 +144,6 @@ sadd)
     key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
     _set_add $thash $shash $key
     ;;
-slin)
-    thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
-    shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
-    _set_member $thash $shash $key
-    exit $?
-    ;;
 slrem)
     thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
     shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
@@ -165,6 +154,11 @@ scard)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
     key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
     _set_get $hash $key | wc -l
+    ;;
+llen)
+    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
+    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    _list_len $hash $key
     ;;
 lpos)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
@@ -189,7 +183,7 @@ lfind)
     thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
     shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
     key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
-    _list_find $thash $shash $key
+    _set_list_find $thash $shash $key
     ;;
 lrange)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
@@ -201,17 +195,11 @@ lrange)
 verify)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
     _verify_data $hash __procedure__
-    _verify_data $hash __milestone__
-    ;;
-llen)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
-    _list_len $hash $key
     ;;
 set-interpreter)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
     key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
-    _set_interpreter $hash $key
+    _exe_set_interpreter $hash $key
     ;;
 execute)
     hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?

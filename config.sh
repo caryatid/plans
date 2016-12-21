@@ -1,3 +1,4 @@
+#!/bin/sh 
 
 _return_parse () {
     local len=$(echo "$1" | wc -l)

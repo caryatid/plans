@@ -2,47 +2,9 @@
 
 seed=$(cat /dev/urandom | dd bs=255 count=1 2>/dev/null | tr \\0 \ )
 count=0
-int_keys=$(printf "%s\n" procedure procedure_index status)
 
-_gen_hash() {
-    echo -n $count$seed | sha1sum | cut -d' ' -f1 | tr -d '\n'
-    count=$(( $count + 1 ))
-}
-
-_list_hashes () {
-    find "$_D" -type d | grep -o '../.\{38\}$' | tr -d '/'
-}
-
-_list_hkeys () {
-    ls "$(_get_hdir $1)" | sort | xargs -L1
-}
-
-_match_hash () {
-    for h in $(_list_hashes)
-    do
-        case $h in
-        $1*)
-            echo $h $(_get_key $h $name)
-            ;;
-        esac
-    done
-}
-
-_match_key () {
-    key_match="$1"; test -z "$key_match" && key_match='.*'
-    match="$2"; test -z "$match" && match='.*'
-    for h in $(_list_hashes)
-    do
-        for k in $(_list_hkeys $h | grep "$key_match")
-        do 
-            grep -q "$match" $(_get_hkey $h $k) || continue
-            echo $h $k $(_get_key $h $k | head -n1 | cut -c-33) 
-        done
-    done
-}
-
-
-_parse_key () {
+### parsing
+_parse_key () {  # Hash -> KeyQ -> ParseReturn
     test -z "$1" && return 1
     local hash=$1
     local n=${2:-'.*'}
@@ -59,7 +21,7 @@ _parse_key () {
     _return_parse "$key" "$n"
 }
 
-_parse_hash () {
+_parse_hash () {  # HashQ -> ParseReturn
     local hash=''
     local h="$1"
     test -n "$h" && shift
@@ -82,7 +44,48 @@ _parse_hash () {
     _return_parse "$hash" "$h"
 }
 
-_get_hdir() {  
+### query
+_list_hashes () {  # [Hash]
+    find "$_D" -type d | grep -o '../.\{38\}$' | tr -d '/'
+}
+
+_list_hkeys () {  # Hash -> [Key]
+    ls "$(_get_hdir $1)" | sort | xargs -L1
+}
+
+_match_hash () {  # HashPrefix -> [Hash]
+    for h in $(_list_hashes)
+    do
+        case $h in
+        $1*)
+            echo $h $(_get_key $h $name)
+            ;;
+        esac
+    done
+}
+
+_match_key () {  # Regex -> Regex -> [HashPlus]
+    key_match="$1"; test -z "$key_match" && key_match='.*'
+    match="$2"; test -z "$match" && match='.*'
+    for h in $(_list_hashes)
+    do
+        for k in $(_list_hkeys $h | grep "$key_match")
+        do 
+            grep -q "$match" $(_get_hkey $h $k) || continue
+            echo $h $k $(_get_key $h $k | head -n1 | cut -c-33) 
+        done
+    done
+}
+
+
+### operations
+_gen_hash () {  # Hash
+    echo -n $count$seed | sha1sum | cut -d' ' -f1 | tr -d '\n'
+    count=$(( $count + 1 ))
+}
+
+_get_hdir () {  # Hash -> Maybe KeyDirectory
+    # TODO validate input
     prefix=$(echo $1 | cut -c-2)
     suffix=$(echo $1 | cut -c3-)
     hdir="$_D/$prefix/$suffix"
@@ -90,14 +93,14 @@ _get_hdir() {
     echo -n $hdir
 }
 
-_get_hkey() {  
+_get_hkey () {  # Hash -> Key -> Maybe KeyPath
     test -z "$2" && { echo must provide key; return 1 ;}
     hkey=$(_get_hdir "$1")/$2
     test -f "$hkey" || touch "$hkey"
     echo -n "$hkey"
 }
 
-_new_hash () {
+_new_hash () {  # String -> Hash
     test -z "$1" && { echo provide a name; return 1 ;}
     hash=$(_gen_hash)
     echo "$@" >$(_get_hkey $hash name)
@@ -105,24 +108,23 @@ _new_hash () {
     echo $hash
 }
 
-_rm_hash () {
+_rm_hash () {  # Hash -> Bool
     rm -Rf $(_get_hdir $1)
 }
 
-_edit_key () {
+_edit_key () {  # Hash -> Key -> Bool 
+    # TODO verify the output of Bool here
     $EDITOR "$(_get_hkey $1 $2)"
 }
 
-_get_key () {
+_get_key () {  # Hash -> Key -> String
     key=name
     test -n "$2" && key=$2
     cat "$(_get_hkey $1 $key)" 
 }
 
-_set_key () {
+_set_key () {  # Hash -> Key -> Bool
     test -z "$2" && echo must provide key && return 1
-    { echo "$int_keys" | grep -q "$2" ;} && \
-        echo $2 is an internal key && return 1
     cat - >"$(_get_hkey $1 $2)"
 }
 
