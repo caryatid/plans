@@ -5,7 +5,7 @@ _return_parse () {
     test -z "$1" && len=0
     case $len in
     1)
-        echo $1 | cut -d' ' -f1 
+        echo $1 | cut -d' ' -f1
         return 0
         ;;
     0)

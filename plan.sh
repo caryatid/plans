@@ -5,38 +5,50 @@ _parse_plan () {  # PlanQ -> ParseReturn
     local hash=''
     local h="$1"
     test -n "$h" && shift
-    local limit=''
-    echo $h | grep -q ^f_ && h=$(echo $h | cut -c3-) && limit=on
+    local open=$(_get_ref __open__)
+    local pattern='.*'
+    echo "$h" | grep -q '^.\.' && pattern=${h#??}
+    test -z "$pattern" && pattern='.*'
     case "$h" in
-    .)
-        hash=$(_get_ref __open__)
+    .)  # current
+        hash=$open
         ;;
-    n.*)  # ref-name
+    r.*)  # refs
+        hash=$(_match_ref "$pattern")
+        ;;
+    i.*)  # index
+        test "$pattern" = '.*' && pattern='0'
+        hash=$($DATA_X lindex =$open __procedure__ "$pattern")
+        ;;
+    p.*)  # parents
+        local all=$($HASH_X list-hashes)
+        test "$pattern" = '.*' && pattern=''
+        hash=$(echo "$all" | _get_parents $open | $HASH_X id f_"$pattern")
+        ;;
+    c.*)  # children
         local match=$(echo $h | cut -c3-)
-        hash=$(_match_ref $match)
+        test "$pattern" = '.*' && pattern=''
+        hash=$($HASH_X key =$open __procedure__ | $HASH_X id f_"$pattern")
         ;;
-    i.*)
-        hash=$($DATA_X lindex =$(_get_ref __open__) __procedure__ $(echo $h | cut -c3-))
+    t.*)  # tops
+        hash=$(printf '%s\n' not implemented)
         ;;
     h.*)  # history
-        local match=$(echo $h | cut -c3-)
-        hash=$(_match_history $match)
+        hash=$(printf '%s\n' not implemented)
         ;;
     *)   # pass to hash
         hash=$($HASH_X id "$h")
         ;;
     esac
-    test -n "$limit" && hash=$(echo "$hash" | grep -F -e"$(_list_children $(_get_ref __open__))")
-    _return_parse "$hash" "$h"    
+    _return_parse "$hash" "$h" 
 }
 
 ### query
 _match_ref () {  # Regex -> [HashPlus]
-    local match="$1"
-    ls $(_get_plan_dir)/refs | grep ${match:-'.*'} | \
+    ls $(_get_plan_dir)/refs | grep "$1" | \
     while read n 
     do
-        echo $(_get_ref "$n") $n
+        echo $(_get_ref "$n") | $HASH_X append $n x
     done
 }
 
@@ -49,23 +61,14 @@ _get_parents () {  # Hash -> [HashPlus]
     local hash=$1
     while read h
     do
-        $DATA_X key =$h +__procedure__ | grep -q $hash && echo $h $($HASH_X key =$h name)
+        $DATA_X key =$h +__procedure__ | grep -q $hash && echo $h | $HASH_X append name
     done
 }
 
 _rev_ref () {  # Hash -> [RefName]
     local hash=$1
     local P=$(_get_plan_dir)
-    local ret=1
-    for r in $(ls "$P/refs")
-    do
-        if grep -q $hash "$P/refs/$r"
-        then
-            ret=0
-            echo $r
-        fi
-    done
-    return $ret
+    grep -F -H $hash "$P/refs/"* | cut -d':' -f1 | sort | uniq
 }
   
 _gen_status () {  # Hash -> Hash -> StatusString
@@ -134,8 +137,9 @@ _to_list () {  # TODO think about this one
 
 ### operations
 _set_ref () {  # Hash -> RefName -> Bool
-    test -z "$2" && echo must provide name && return 1
-    echo $1 >"$(_get_plan_dir)/refs/$2"
+    local hash=$1; shift
+    test -z "$1" && echo must provide name && return 1
+    echo $hash >"$(_get_plan_dir)/refs/$@"
 }
 
 _get_ref () {  # RefName -> Maybe Hash
@@ -152,14 +156,6 @@ _rm_ref () {  # RefName -> Bool
     return 0
 }
 
-_get_status () {  # Hash -> Status
-    local hash=$1
-    local s=$($HASH_X key =$hash +__status__)
-    echo $s
-    echo $s | grep -qi '^true' && return 0
-    echo $s | grep -qi '^false' && return 2
-    return 1
-}
 
         
 _organize () {  # Hash -> Bool
@@ -184,86 +180,50 @@ _organize () {  # Hash -> Bool
 
 test -n "$1" && { cmd=$1; shift ;}
 case ${cmd:-''} in
+rm-ref)
+    _rm_ref "$1"
+    ;;
 open) 
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
     _set_ref $hash __open__
     ;;
-ref)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    _set_ref $hash "$2"
-    ;;
-rm-ref)
-    _rm_ref "$1"
-    ;;
-name)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    test -n "$1" && shift
-    test -z "$1" && $DATA_X key =$hash +name && exit 1
-    echo "$@" | $HASH_X set =$hash +name
-    ;;
 data)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $HASH_X parse-key =$hash | grep -v '^__'
+    $HASH_X parse-key =$hash 
     ;;
-n)
+organize)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $HASH_X edit =$hash +notes
+    _organize $hash
     ;;
-d)
+ref)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $HASH_X edit =$hash +description
-    ;;
-set-status)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    echo "$2" | $HASH_X set =$hash +__status__
+    shift
+    _set_ref $hash "$@"
     ;;
 status)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    _get_status $hash
+    $DATA_X bool $hash +__status__ $2
     ;;
-add)
-    thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
-    shash=$(_parse_plan "$2") || _err_multi hash "$shash" $?
-    $DATA_X linsert =$thash =$shash +__procedure__ $3
+advance)
+    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
+    $DATA_X lpos =$hash +__procedure__ $2
     ;;
 remove)
     thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
     shash=$(_parse_plan "$2") || _err_multi hash "$shash" $?
     $DATA_X slrem =$thash =$shash +__procedure__
     ;;
+add)
+    thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
+    shash=$(_parse_plan "$2") || _err_multi hash "$shash" $?
+    $DATA_X linsert =$thash =$shash +__procedure__ $3
+    ;;
 move)
     thash=$(_parse_plan "$1") || _err_multi hash "$thash" $?
     shash=$(_parse_plan "$2") || _err_multi hash "$shash" $?
     dhash=$(_parse_plan "$3") || _err_multi hash "$dhash" $?
-    $DATA_X linsert =$dhash =$shash +__procedure__
+    $DATA_X linsert =$dhash =$shash +__procedure__ e.1
     $DATA_X slrem =$thash =$shash +__procedure__
-    ;;
-advance)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $DATA_X lpos =$hash +__procedure__ $2
-    ;;
-current)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    cur=$($DATA_X lindex =$hash +__procedure__ +0)
-    test -z "$cur" && exit 1
-    echo $($DATA_X lfind =$hash $cur __procedure__) $(_gen_status =$hash $cur) \
-        $(echo $cur | cut -c-5) $($HASH_X key =$cur name)
-    ;;
-parents)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    $HASH_X list-hashes | _get_parents $hash 
-    ;;
-organize)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    _organize $hash
-    ;;
-list-children)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    _list_children $hash 
-    ;;
-display)
-    hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
-    _to_list $hash $2
     ;;
 tops)
     tmp=$(mktemp)
@@ -271,7 +231,7 @@ tops)
     for h in $all
     do
         in_refs=""
-        _rev_ref $h >/dev/null && in_refs="*"
+        test -n "$(_rev_ref $h)" && in_refs="*"
         test -z "$(echo "$all" | _get_parents $h)" && echo $h $($HASH_X key =$h name) "$in_refs"
     done
     ;;
@@ -291,7 +251,15 @@ help)
 *)
     hash=$(_parse_plan "$1") || _err_multi hash "$hash" $?
     shift
-    $DATA_X $cmd =$hash "$@"
+    key=$($HASH_X parse-key =$hash "$cmd") || _err_multi key "$key" $?
+    if test -t 0 && test -z "$1"
+    then
+        $HASH_X edit =$hash +$key
+    elif test -n "$1"
+    then
+        echo "$@" | $HASH_X set =$hash +$key
+    else
+        $HASH_X set =$hash +$key
+    fi
     ;;
 esac
-

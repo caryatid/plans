@@ -10,11 +10,11 @@ _parse_key () {  # Hash -> KeyQ -> ParseReturn
     local n=${2:-'.*'}
     local key=''
     case "$n" in
-    +*)
+    +*)  # create
         key=$(echo "$n" | cut -c2-)
         _get_key $1 "$key" >/dev/null
         ;;
-    *)
+    *)  # regex
         key=$(_list_hkeys $hash | grep "^$n\$")
         ;;
     esac
@@ -25,20 +25,21 @@ _parse_hash () {  # HashQ -> ParseReturn
     local hash=''
     local h="$1"
     test -n "$h" && shift
-    case "$h" in
-    *:*) # key:match
+    echo "$h" | grep -q '^f_' && { h=${h#??}; FROM_STDIN=1 ;}
+    case $h in 
+    *:*) # key_match
         local key=$(echo $h | cut -d':' -f1)
         local match=$(echo $h | cut -d':' -f2)
-        hash=$(_match_key "$key" "$match" )
+        hash=$(_match_key "$key" "$match")
         ;;
-    +*)  # new hash, .name
+    +*)  # create
         hash=$(_new_hash $(echo "$h" | cut -c2-))
         ;;
-    =*)  # use this hash exactly as is ( no parsing )
-        hash=$(echo "$h" | cut -c2-)
+    =*)  # no_parse
+        hash=$(echo $h | cut -c2-)
         ;;
-    *)   # prefix hash match
-        hash=$(_match_hash $h)
+    *)
+        hash=$(_match_hash "$h")
         ;;
     esac
     _return_parse "$hash" "$h"
@@ -46,37 +47,43 @@ _parse_hash () {  # HashQ -> ParseReturn
 
 ### query
 _list_hashes () {  # [Hash]
-    find "$_D" -type d | grep -o '../.\{38\}$' | tr -d '/'
+    # TODO this is fucked if called in sequence with stdin input
+    if test -z "$FROM_STDIN"
+    then
+        find "$_D" -type d | grep -o '../.\{38\}$' | tr -d '/'
+    else
+        cat - | xargs -L1 | cut -d' ' -f1
+    fi
 }
 
 _list_hkeys () {  # Hash -> [Key]
     ls "$(_get_hdir $1)" | sort | xargs -L1
 }
 
+
 _match_hash () {  # HashPrefix -> [Hash]
     for h in $(_list_hashes)
     do
         case $h in
         $1*)
-            echo $h $(_get_key $h $name)
+            echo $h | _append name
             ;;
         esac
-    done
+    done 
 }
 
-_match_key () {  # Regex -> Regex -> [HashPlus]
-    key_match="$1"; test -z "$key_match" && key_match='.*'
-    match="$2"; test -z "$match" && match='.*'
+_match_key () {  # Regex -> Regex -> [Hash]
+    key_match=${1:-'.*'}
+    pattern=${2:-'.*'}
     for h in $(_list_hashes)
     do
         for k in $(_list_hkeys $h | grep "$key_match")
         do 
-            grep -q "$match" $(_get_hkey $h $k) || continue
-            echo $h $k $(_get_key $h $k | head -n1 | cut -c-33) 
+            grep -q "$pattern" $(_get_hkey $h $k) || continue
+            echo $h | _append $k x | _append $k
         done
-    done
+    done 
 }
-
 
 ### operations
 _gen_hash () {  # Hash
@@ -128,6 +135,20 @@ _set_key () {  # Hash -> Key -> Bool
     cat - >"$(_get_hkey $1 $2)"
 }
 
+_append () {
+    local key=$1
+    while read h
+    do
+        h_=$(echo $h | cut -d' ' -f1)
+        if test -n "$2"
+        then
+            echo $h - $key
+        else
+            echo $h - $(_get_key $h_ $key | cut -c-33)
+        fi
+    done
+}
+
 case "$1" in
 -D*)
     _D="${1#-D}"
@@ -143,41 +164,50 @@ esac
 
 cmd=key
 test -n "$1" && { cmd=$1; shift ;}
+hashq="$1"
 case "$cmd" in
 list-hashes)
     _list_hashes
     ;;
 id)
-    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
     printf '%s\n' $hash 
     ;;
 delete)
-    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
     _rm_hash $hash
     ;;
+delete-key)
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
+    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    rm "$(_get_hkey $hash $key)"
+    ;;
 key)
-    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
     key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
     _get_key $hash "$key"
     ;;
 set)  
-    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
     key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
     _set_key $hash "$key"
     ;;
 edit)
-    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
     key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
     _edit_key $hash "$key"
     ;;
 parse-hash)
-    _parse_hash "$1"
+    _parse_hash "$hashq"
+    ;;
+append)
+    _append "$@"
     ;;
 parse-key)
-    hash=$(_parse_hash "$1") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
     _parse_key $hash "$2"
     ;;
-*)  # this help
+*)
     echo you are currently helpless
     ;;
 esac
