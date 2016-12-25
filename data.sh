@@ -1,5 +1,10 @@
 #!/bin/sh
 
+CORE=./core.sh
+TMP=$($CORE temp-dir)
+trap 'rm -Rf $TMP' EXIT
+HASH_X=./hash.sh
+
 ### parsing
 _parse_list_idx () {  # Hash -> Name -> IdxQ -> ParseReturn
     test -z "$1" && echo must provide hash && return 1
@@ -33,7 +38,7 @@ _parse_list_idx () {  # Hash -> Name -> IdxQ -> ParseReturn
     esac
     test -z "$idx" || test $idx -lt 0 && idx=0
     test $idx -gt $max && idx=$max
-    _return_parse "$idx" "$pattern"
+    $CORE return-parse "$idx" "$pattern"
 }
 
 ### query
@@ -101,30 +106,24 @@ _set_add () {  # Hash -> Hash -> Key -> None
     local thash=$1
     local shash=$2
     local name=$3
-    local tmp=$(mktemp)
-    $HASH_X key =$thash $name >$tmp
-    echo $shash $(cat $tmp) | tr ' ' '\n' | sort | uniq \
+    $HASH_X key =$thash $name >$TMP/set
+    echo $shash $(cat $TMP/set) | tr ' ' '\n' | sort | uniq \
         | $HASH_X set =$thash $name
-    rm $tmp
 }
 
 _list_insert () {  # Hash -> Hash -> Key -> IdxQ -> None
     local thash=$1; local shash=$2; local name=$3; local idx=$4
-    local tmp=$(mktemp)
-    $HASH_X key =$thash +$name >$tmp
-    echo $(head -n$idx $tmp) $shash $(tail -n+$(( $idx + 1 )) $tmp) | tr ' ' '\n' \
+    $HASH_X key =$thash +$name >$TMP/list
+    echo $(head -n$idx $TMP/list) $shash $(tail -n+$(( $idx + 1 )) $TMP/list) | tr ' ' '\n' \
         | $HASH_X set =$thash $name
-    rm $tmp
 }
 
 _set_list_rem () {  # Hash -> Hash -> Key -> None
     local thash=$1
     local shash=$2
     local name=$3
-    local tmp=$(mktemp)
-    $HASH_X key =$thash $name >$tmp
-    cat $tmp | grep -v $shash | $HASH_X set =$thash $name
-    rm $tmp
+    $HASH_X key =$thash $name >$TMP/set
+    cat $TMP/set | grep -v $shash | $HASH_X set =$thash $name
 }
 
 _list_set_index () {  # Hash -> Key -> IdxQ -> Idx
@@ -148,99 +147,96 @@ _execute () {  # Hash -> Key -> ?Exe?
 _verify_data () {  # Hash -> Key -> None
     local hash=$1
     local name=$2
-    local tmp=$(mktemp)
     local exists=$($HASH_X list-hashes)
-    _set_get $hash $name | grep -e"$exists" >$tmp
-    $HASH_X set =$hash $name <$tmp
-    rm $tmp
+    _set_get $hash $name | grep -e"$exists" >$TMP/set
+    $HASH_X set =$hash $name <$TMP/set
 }
 
-. ./config.sh
 
 cmd=get
 test -n "$1" && { cmd=$1; shift ;}
 case $cmd in 
 smembers)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _set_get $hash $key
     ;;
 sadd)
-    thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
-    shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
+    thash=$($HASH_X parse-hash "$1") || $CORE err-msg  "$thash" "target hash" $?
+    shash=$($HASH_X parse-hash "$2") || $CORE err-msg  "$shash" "source hash" $?
+    key=$($HASH_X parse-key $thash "$3") || $CORE err-msg "$key" key $?
     _set_add $thash $shash $key
     ;;
 slrem)
-    thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
-    shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key $thash "$3") || _err_multi key "$key" $?
+    thash=$($HASH_X parse-hash "$1") || $CORE err-msg  "$thash" "target hash" $?
+    shash=$($HASH_X parse-hash "$2") || $CORE err-msg  "$shash" "source hash" $?
+    key=$($HASH_X parse-key $thash "$3") || $CORE err-msg "$key" key $?
     _set_list_rem $thash $shash $key
     ;;
 scard)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _set_get $hash $key | wc -l
     ;;
 llen)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _list_len $hash $key
     ;;
 bool)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _bool_set $hash $key "$3"
     ;;
 lpos)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
-    idx=$(_parse_list_idx $hash $key "$3") || _err_multi idx "$idx" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
+    idx=$(_parse_list_idx $hash $key "$3") || $CORE err-msg "$idx" idx $?
     _list_set_index $hash $key "$idx"
     ;;
 lindex)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
-    idx=$(_parse_list_idx $hash $key "${3:-0}") || _err_multi idx "$idx" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
+    idx=$(_parse_list_idx $hash $key "${3:-0}") || $CORE err-msg "$idx" idx $?
     _list_index $hash $key $idx
     ;;
 linsert)
-    thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
-    shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
-    idx=$(_parse_list_idx $thash $key "${4:-0}") || _err_multi idx "$idx" $?
+    thash=$($HASH_X parse-hash "$1") || $CORE err-msg  "$thash" "target hash" $?
+    shash=$($HASH_X parse-hash "$2") || $CORE err-msg  "$shash" "source hash" $?
+    key=$($HASH_X parse-key =$thash "$3") || $CORE err-msg "$key" key $?
+    idx=$(_parse_list_idx $thash $key "${4:-0}") || $CORE err-msg "$idx" idx $?
     _list_insert $thash $shash $key $idx
     ;;
 lfind)
-    thash=$($HASH_X parse-hash "$1") || _err_multi "target hash" "$thash" $?
-    shash=$($HASH_X parse-hash "$2") || _err_multi "source hash" "$shash" $?
-    key=$($HASH_X parse-key =$thash "$3") || _err_multi key "$key" $?
+    thash=$($HASH_X parse-hash "$1") || $CORE err-msg "$thash" "target hash" $?
+    shash=$($HASH_X parse-hash "$2") || $CORE err-msg "$shash" "source hash" $?
+    key=$($HASH_X parse-key =$thash "$3") || $CORE err-msg "$key" key $?
     _set_list_find $thash $shash $key
     ;;
 lrange)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
-    sidx=$(_parse_list_idx $hash $key "${3:-0}") || _err_multi "start idx" "$sidx" $?
-    eidx=$(_parse_list_idx $hash $key "${4:-e.1}") || _err_multi "end idx" "$eidx" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" $key ?
+    sidx=$(_parse_list_idx $hash $key "${3:-0}") || $CORE err-msg "$sidx" "start idx" $?
+    eidx=$(_parse_list_idx $hash $key "${4:-e.1}") || $CORE err-msg "$eidx" "end idx" $?
     _list_range $hash $key $sidx $eidx
     ;;
 verify)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
     _verify_data $hash __procedure__
     ;;
 set-interpreter)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _exe_set_interpreter $hash $key
     ;;
 execute)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _execute $hash $key
     ;;
 parse-list)
-    hash=$($HASH_X parse-hash "$1") || _err_multi hash "$hash" $?
-    key=$($HASH_X parse-key =$hash "$2") || _err_multi key "$key" $?
+    hash=$($HASH_X parse-hash "$1") || $CORE err-msg "$hash" hash $?
+    key=$($HASH_X parse-key =$hash "$2") || $CORE err-msg "$key" key $?
     _parse_list_idx $hash $key $3
     ;;
 *)

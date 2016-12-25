@@ -2,6 +2,10 @@
 
 seed=$(cat /dev/urandom | dd bs=255 count=1 2>/dev/null | tr \\0 \ )
 count=0
+CORE=./core.sh
+TMP=$($CORE temp-dir)
+trap 'rm -Rf $TMP' EXIT
+HDIR=$($CORE hash-dir) || { $CORE hash-dir; HDIR=$($CORE hash-dir) ;} 
 
 ### parsing
 _parse_key () {  # Hash -> KeyQ -> ParseReturn
@@ -18,7 +22,7 @@ _parse_key () {  # Hash -> KeyQ -> ParseReturn
         key=$(_list_hkeys $hash | grep "^$n\$")
         ;;
     esac
-    _return_parse "$key" "$n"
+    $CORE return-parse "$key" "$n"
 }
 
 _parse_hash () {  # HashQ -> ParseReturn
@@ -42,7 +46,7 @@ _parse_hash () {  # HashQ -> ParseReturn
         hash=$(_match_hash "$h")
         ;;
     esac
-    _return_parse "$hash" "$h"
+    $CORE return-parse "$hash" "$h"
 }
 
 ### query
@@ -50,7 +54,7 @@ _list_hashes () {  # [Hash]
     # TODO this is fucked if called in sequence with stdin input
     if test -z "$FROM_STDIN"
     then
-        find "$_D" -type d | grep -o '../.\{38\}$' | tr -d '/'
+        find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/'
     else
         cat - | xargs -L1 | cut -d' ' -f1
     fi
@@ -95,7 +99,7 @@ _get_hdir () {  # Hash -> Maybe KeyDirectory
     # TODO validate input
     prefix=$(echo $1 | cut -c-2)
     suffix=$(echo $1 | cut -c3-)
-    hdir="$_D/$prefix/$suffix"
+    hdir="$HDIR/$prefix/$suffix"
     mkdir -p "$hdir"
     echo -n $hdir
 }
@@ -149,18 +153,6 @@ _append () {
     done
 }
 
-case "$1" in
--D*)
-    _D="${1#-D}"
-    shift
-    ;;
-*)
-    _D=./.hash
-    ;;
-esac
-
-. ./config.sh
-
 
 cmd=key
 test -n "$1" && { cmd=$1; shift ;}
@@ -170,31 +162,31 @@ list-hashes)
     _list_hashes
     ;;
 id)
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
     printf '%s\n' $hash 
     ;;
 delete)
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
     _rm_hash $hash
     ;;
 delete-key)
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
-    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
+    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
     rm "$(_get_hkey $hash $key)"
     ;;
 key)
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
-    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
+    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
     _get_key $hash "$key"
     ;;
 set)  
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
-    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
+    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
     _set_key $hash "$key"
     ;;
 edit)
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
-    key=$(_parse_key $hash "$2") || _err_multi key "$key" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
+    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
     _edit_key $hash "$key"
     ;;
 parse-hash)
@@ -204,7 +196,7 @@ append)
     _append "$@"
     ;;
 parse-key)
-    hash=$(_parse_hash "$hashq") || _err_multi hash "$hash" $?
+    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
     _parse_key $hash "$2"
     ;;
 *)
