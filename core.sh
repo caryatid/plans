@@ -1,7 +1,5 @@
 #!/bin/sh 
 
-# TODO HANDLE ERRO
-
 _return_parse () {
     local len=$(echo "$1" | wc -l)
     test -z "$1" && len=0
@@ -40,8 +38,12 @@ _init_plan_dir () {
 }
 
 _error () {   # msg -> header -> code
-    test -n "$2" && printf "%s\n" "$2"
-    printf "%s\n" "$1"
+    ## "test -t"  so header is not output when piping
+    local header=$(echo "$2" | xargs -L1)
+    local msg=$(echo "$1" | xargs -L1)
+    # TODO compose headers?
+    test -t 1 && test -n "$header" && printf "%s" "$header"
+    test -n "$msg" && printf "\n%s\n" "$msg"
     return ${3:-0}
 }
 
@@ -66,7 +68,11 @@ plan-dir)
     _get_plan_dir || _ask_to_init
     ;;
 hash-dir)
-    _get_plan_dir || _ask_to_init
+    _get_plan_dir >/dev/null || { _ask_to_init; exit 1 ;}
+    echo $(_get_plan_dir)/.hash
+    ;;
+make-header)
+    printf '[ %s ] - %s -\n' "$1" "${2:--}"
     ;;
 err-msg)
     _error "$@"

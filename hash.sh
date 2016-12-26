@@ -139,65 +139,72 @@ _set_key () {  # Hash -> Key -> Bool
     cat - >"$(_get_hkey $1 $2)"
 }
 
-_append () {
+_append () {  # TODO append gets fubared if no space between hash and keys
     local key=$1
     while read h
     do
         h_=$(echo $h | cut -d' ' -f1)
         if test -n "$2"
         then
-            echo $h - $key
+            echo $h \| $key
         else
-            echo $h - $(_get_key $h_ $key | cut -c-33)
+            echo $h \| $(_get_key $h_ $key | cut -c-33)
         fi
     done
 }
 
+_handle_hash () {  # query -> header
+    local header=$($CORE make-header hash "$2")
+    hash=$(_parse_hash "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
+}
+
+_handle_hash_key () {  # hash -> query -> header -> key
+    # TODO can keys have spaces?
+    _handle_hash "$1" "$3"
+    local header=$($CORE make-header key "$3")
+    key=$(_parse_key $hash "$2") || { $CORE err-msg "$key" "$header" $?; exit 1 ;}
+}
 
 cmd=key
 test -n "$1" && { cmd=$1; shift ;}
-hashq="$1"
 case "$cmd" in
 list-hashes)
-    _list_hashes
+    _list_hashes 
     ;;
 id)
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
-    printf '%s\n' $hash 
+    _handle_hash "$1" 'id'
+    echo $hash
     ;;
 delete)
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
+    _handle_hash "$1"
     _rm_hash $hash
     ;;
 delete-key)
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
-    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
+    _handle_hash_key "$1" "$2"
     rm "$(_get_hkey $hash $key)"
     ;;
 key)
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
-    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
+    _handle_hash_key "$1" "$2"
     _get_key $hash "$key"
     ;;
 set)  
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
-    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
+    _handle_hash_key "$1" "$2"
     _set_key $hash "$key"
     ;;
 edit)
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
-    key=$(_parse_key $hash "$2") || { echo "$key"; exit 1 ;}
+    _handle_hash_key "$1" "$2"
     _edit_key $hash "$key"
     ;;
 parse-hash)
-    _parse_hash "$hashq"
+    _handle_hash "$1"
+    echo $hash
     ;;
 append)
     _append "$@"
     ;;
 parse-key)
-    hash=$(_parse_hash "$hashq") || { echo "$hash"; exit 1 ;}
-    _parse_key $hash "$2"
+    _handle_hash_key "$1" "$2" foobaz
+    echo $key
     ;;
 *)
     echo you are currently helpless
