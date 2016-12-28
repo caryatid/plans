@@ -203,7 +203,7 @@ append)
     _append "$@"
     ;;
 parse-key)
-    _handle_hash_key "$1" "$2" foobaz
+    _handle_hash_key "$1" "$2"
     echo $key
     ;;
 *)

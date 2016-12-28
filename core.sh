@@ -42,8 +42,8 @@ _error () {   # msg -> header -> code
     local header=$(echo "$2" | xargs -L1)
     local msg=$(echo "$1" | xargs -L1)
     # TODO compose headers?
-    test -t 1 && test -n "$header" && printf "%s" "$header"
-    test -n "$msg" && printf "\n%s\n" "$msg"
+    test -t 1 && test -n "$header" && printf "%s\n" "$header"
+    test -n "$msg" && printf "%s\n" "$msg"
     return ${3:-0}
 }
 
@@ -75,7 +75,7 @@ make-header)
     printf '[ %s ] - %s -\n' "$1" "${2:--}"
     ;;
 err-msg)
-    _error "$@"
+    _error "$@" 
     ;;
 temp-dir)
     # yer job to clean up bubbo

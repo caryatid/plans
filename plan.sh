@@ -5,8 +5,9 @@ TMP=$($CORE temp-dir)
 trap 'rm -Rf $TMP' EXIT
 PDIR=$($CORE plan-dir) || { $CORE plan-dir; PDIR=$($CORE plan-dir) ;} 
 HASH_X=./hash.sh
-HSIZE=100
 DATA_X=./data.sh
+
+HSIZE=100
 PRE_M='^__._'
 PRE_P=__p_  # procedure
 PRE_G=__g_  # group
@@ -43,7 +44,7 @@ _parse_plan () {  # PlanQ -> ParseReturn
         hash=$($HASH_X key =$open +$PRE_P| $HASH_X id f_"$pattern")
         ;;
     t.*)  # tops
-        hash=$(printf '%s\n' not implemented)
+        hash=$(echo 'not implemented\nwill be shortly')
         ;;
     h.*)  # history
         local match=$(echo $h | cut -c3-)
@@ -73,12 +74,23 @@ _parse_ref () {
     $CORE return-parse "$ref" "$r"
 }
 
-_list_groups () {
+
+_parse_plan_data () {
     local hash=$1
-    $HASH_X parse-key $1 | grep "^$PRE_G" | cut -c5-
+    local d=${2:-'.*'}    
+    local data=''
+    case "$d" in
+    +*)
+        $HASH_X key $hash "$data"
+        ;;
+    *)
+        data=$($HASH_X parse-key $hash | grep -v "$PRE_M" | grep "$d")
+        ;;
+    esac
+    $CORE return-parse "$data" "$d"
 }
 
-_parse_group () { 
+_parse_plan_group () { 
     local hash=$1
     local g=${2:-'.*'}
     local group=''
@@ -95,6 +107,11 @@ _parse_group () {
 }
 
 ### query
+_list_groups () {
+    local hash=$1
+    $HASH_X parse-key $1 | grep "^$PRE_G" | cut -c5-
+}
+
 _match_ref () {  # Regex -> [HashPlus]
     ls "$PDIR/refs" | grep "$1" | \
     while read n 
@@ -103,7 +120,7 @@ _match_ref () {  # Regex -> [HashPlus]
     done
 }
 
-_get_parents () {  # Hash -> [HashPlus]
+_get_parents () {  # TODO permormance
     local hash=$1
     while read h
     do
@@ -151,40 +168,50 @@ _list_children () {  # TODO depth
     
 _get_membership () {
     local hash=$1; local parent=$2
-    #_list_groups $parent
     for group in $(_list_groups $parent)
     do
         $DATA_X sfind $parent $hash $PRE_G$group >/dev/null && echo $group
     done | sort | uniq
 }    
 
-_display_list () {
+_display_list () {  # TODO move to core.sh?
     local header=${2:-''}
     local s=$(printf 's/^/%-10.10s/' "$header")
     sed "$s" $1
 }
 
-_display_plan () {
+_tops () {  # TODO get into parsing
+    test ! -t 0 && export FROM_STDIN=1
+    $HASH_X list-hashes >$TMP/tops
+    while read h
+    do
+        in_refs=""
+        test -n "$(_rev_ref $h)" && in_refs="*"
+        test -z "$(cat $TMP/tops | _get_parents $h)" && echo $h $($HASH_X key =$h name) "$in_refs"
+    done <$TMP/tops
+}
+
+_display_plan () { # TODO design outputs
+                   # TODO show index
     local hash=$1; local parent=$2; local type=$3
     echo $hash >$TMP/hash
     $HASH_X key $hash name >$TMP/name
+    $HASH_X key $hash creation_time | cut -d, -f1 >$TMP/creation_time
     truncate -s 0 $TMP/status-line
     test -n "$parent" && _get_membership $hash $parent >$TMP/membership
-    $HASH_X list-hashes | _get_parents $hash >$TMP/parents
-    $HASH_X key $hash $PRE_P | $HASH_X append >$TMP/children
+    # $HASH_X list-hashes | _get_parents $hash >$TMP/parents
+    $HASH_X key $hash +$PRE_P | $HASH_X append >$TMP/children
     _list_groups $hash >$TMP/groups
-    local fields='membership parents children groups'
-    if _check_status $hash
-    then
-        printf '[%-17.17s]' "$(cat $TMP/name)"
-        printf '[%5.5s]' "$(cat $TMP/hash)"
-    else
-        printf '(%-17.17s)' "$(cat $TMP/name)"
-        printf '(%5.5s)' "$(cat $TMP/hash)"
-    fi
+    _parse_plan_data $hash | grep -v -e"$(printf '%s\n' name creation_time)" >$TMP/data
+    _check_status $hash && { local left='['; local right=']' ;}
+    printf '%c %5.5s %c' ${left:-(} "$(cat $TMP/hash)" ${right:-)}
+    printf ' %c %-23.23s %c' ${left:-(} "$(cat $TMP/name)" ${right:-)}
+    printf ' %c %19.19s %c' ${left:-(} "$(cat $TMP/creation_time)" ${right:-)}
+
+    local lists='membership children groups data'
     case $type in
     oneline)
-        for n in $fields
+        for n in $lists
         do
             local marker=-
             test $(wc -l $TMP/$n | cut -d' ' -f1) -ge 1 && marker=x
@@ -193,12 +220,9 @@ _display_plan () {
         printf ' %s' "$(cat $TMP/status-line)"
         echo
         ;;
-    seen)
-        echo " seen" $(cat $TMP/name)
-        ;;
     *)
         echo
-        for n in $fields
+        for n in $lists
         do
             printf ' %s:\n' $n
             _display_list $TMP/$n "    "
@@ -219,7 +243,7 @@ _to_list () {
     if grep -q $hash $TMP/seen
     then
         _display_plan $hash $parent $type >$TMP/plan
-        _display_list $TMP/plan "$header"x
+        _display_list $TMP/plan "$header".
         return 0
     else
         _display_plan $hash $parent $type >$TMP/plan
@@ -267,16 +291,6 @@ _organize () {  # Hash -> Bool
     done <$TMP/proc
 }    
 
-_tops () {
-    test ! -t 0 && export FROM_STDIN=1
-    $HASH_X list-hashes >$TMP/tops
-    while read h
-    do
-        in_refs=""
-        test -n "$(_rev_ref $h)" && in_refs="*"
-        test -z "$(cat $TMP/tops | _get_parents $h)" && echo $h $($HASH_X key =$h name) "$in_refs"
-    done <$TMP/tops
-}
 
 _add_to_history () {  # TODO good cause for file locking review
     local hash=$1
@@ -317,7 +331,7 @@ _handle_target_source_group () {
     _handle_plan "$1" "$4"; target=$hash
     _handle_plan "$2" "$4"; source=$hash
     local header=$($CORE make-header group "$4")
-    group=$(_parse_group $target "$3") || { $CORE err-msg "$group" "$header" $?; exit 1 ;}
+    group=$(_parse_plan_group $target "$3") || { $CORE err-msg "$group" "$header" $?; exit 1 ;}
 }
 
 _handle_target_source_destination () {
@@ -326,6 +340,12 @@ _handle_target_source_destination () {
     _handle_plan "$3" "$4"; destination=$hash
 }
     
+_handle_plan_data () {
+    _handle_plan "$1" "$3"
+    local header=$($CORE make-header available-data "$3")
+    data=$(_parse_plan_data $hash "$2") || { $CORE err-msg "$data" "$header" $?; exit 1 ;}
+}
+
 test -n "$1" && { cmd=$1; shift ;}
 case ${cmd:-''} in
 rm-ref)
@@ -337,10 +357,8 @@ open)
     _set_ref $hash __o_
     ;;
 data)
-    _handle_plan "$@"
-    header=$($CORE make-header available-data "$2")
-    x=$($HASH_X parse-key =$hash | grep -v $PRE_M) && \
-        $CORE err-msg "$x" "$header" $?
+    _handle_plan_data "$@"
+    echo $data
     ;;
 organize)
     _handle_plan "$@"
@@ -368,7 +386,7 @@ add)
     ;;
 move)
     _handle_target_source_destination "$@"
-    $DATA_X linsert =$destination =$source +$PRE_P $3
+    $DATA_X linsert =$destination =$source +$PRE_P $4
     $DATA_X lrem =$target =$source +$PRE_P 
     ;;
 group-member)
@@ -383,11 +401,8 @@ group-remove)
     _handle_target_source_group "$@"
     $DATA_X srem =$target =$source $PRE_G$group
     ;;
-tops)
-    _tops
-    ;;
 archive)
-    file=$(readlink -f ${1:-$HOME/pa}_$(basename "$PWD").tgz)
+    file=$(readlink -f ${1:-$HOME}/plan_archive_$(basename "$PWD").tgz)
     cd "$PDIR"
     tar -czf "$file" .
     ;;
@@ -405,11 +420,6 @@ hash)
     cmd="$1"; shift
     _handle_plan "$1"; shift
     $HASH_X $cmd =$hash "$@"
-    ;;
-xxxx)
-    _handle_target_source "$@"
-    # _handle_plan "$1"
-    _get_membership $source $target
     ;;
 *)
     _handle_plan_key "$1" "$cmd"; shift
