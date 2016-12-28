@@ -218,8 +218,8 @@ _to_list () {
     test -f $TMP/seen || touch $TMP/seen
     if grep -q $hash $TMP/seen
     then
-        _display_plan $hash $parent seen >$TMP/plan
-        _display_list $TMP/plan "$header"\|
+        _display_plan $hash $parent $type >$TMP/plan
+        _display_list $TMP/plan "$header"x
         return 0
     else
         _display_plan $hash $parent $type >$TMP/plan
