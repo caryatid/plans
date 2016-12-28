@@ -47,7 +47,7 @@ _set_list_find () {  # Hash -> Hash -> Key -> Maybe Idx
     local thash=$1; local shash=$2; local name=$3
     local idx=$($HASH_X key =$thash +$name | grep -n $shash | cut -d':' -f1)
     test -z "$idx" && return 1
-    echo $idx
+    echo $shash
     return 0
 } 
     
@@ -227,7 +227,7 @@ linsert)
     _handle_target_source_key_index "$@"
     _list_insert $target $source $key $index
     ;;
-lfind)
+lfind|sfind)
     _handle_target_source_key "$@"
     _set_list_find $target $source $key
     ;;

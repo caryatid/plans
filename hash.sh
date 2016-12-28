@@ -6,6 +6,7 @@ CORE=./core.sh
 TMP=$($CORE temp-dir)
 trap 'rm -Rf $TMP' EXIT
 HDIR=$($CORE hash-dir) || { $CORE hash-dir; HDIR=$($CORE hash-dir) ;} 
+HASH_LIST=''  # cache of hashlist indicator
 
 ### parsing
 _parse_key () {  # Hash -> KeyQ -> ParseReturn
@@ -51,13 +52,14 @@ _parse_hash () {  # HashQ -> ParseReturn
 
 ### query
 _list_hashes () {  # [Hash]
-    # TODO this is fucked if called in sequence with stdin input
+    test -n "$HASH_LIST" && { cat $TMP/hashes; return 0 ;}
     if test -z "$FROM_STDIN"
     then
-        find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/'
+        find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/' 
     else
         cat - | xargs -L1 | cut -d' ' -f1
-    fi
+    fi | tee $TMP/hashes
+    HASH_LIST=1    
 }
 
 _list_hkeys () {  # Hash -> [Key]
@@ -95,8 +97,7 @@ _gen_hash () {  # Hash
     count=$(( $count + 1 ))
 }
 
-_get_hdir () {  # Hash -> Maybe KeyDirectory
-    # TODO validate input
+_get_hdir () {  # TODO validate input
     prefix=$(echo $1 | cut -c-2)
     suffix=$(echo $1 | cut -c3-)
     hdir="$HDIR/$prefix/$suffix"
@@ -123,8 +124,7 @@ _rm_hash () {  # Hash -> Bool
     rm -Rf $(_get_hdir $1)
 }
 
-_edit_key () {  # Hash -> Key -> Bool 
-    # TODO verify the output of Bool here
+_edit_key () {  
     $EDITOR "$(_get_hkey $1 $2)"
 }
 
@@ -140,6 +140,7 @@ _set_key () {  # Hash -> Key -> Bool
 }
 
 _append () {  # TODO append gets fubared if no space between hash and keys
+              # TODO append an index
     local key=$1
     while read h
     do
@@ -158,8 +159,7 @@ _handle_hash () {  # query -> header
     hash=$(_parse_hash "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
 }
 
-_handle_hash_key () {  # hash -> query -> header -> key
-    # TODO can keys have spaces?
+_handle_hash_key () {  
     _handle_hash "$1" "$3"
     local header=$($CORE make-header key "$3")
     key=$(_parse_key $hash "$2") || { $CORE err-msg "$key" "$header" $?; exit 1 ;}
