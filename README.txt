@@ -6,7 +6,7 @@ hash-dir -> FilePath
 make-header String String -> String
 err-msg List -> String -> ErrorCode -> List
 temp-dir -> FilePath
-init -> PlanDir
+init -> FilePath
 
 ## HASH
 list-hashes -> HashList
@@ -40,30 +40,32 @@ list PlanQ -> Display
 hash CmdQ PlanQ * -> HashX
 
 # DATA
-Bool := true|false
-BoolSet := true|false|toggle
-CmdQ := query of cmd # TODO
+CmdQ := query of cmd 
+GroupQ := query for Groups 
+HashQ := query for hashes 
+IdxQ := query of index
+KeyQ := query for keys
+PlanQ := query for plans
+RefQ := query for references
 
-DirectoryPath 
-Display := sparkles
-ErrorCode
-FilePath
+HashWrite := modifies a hash
+PlanWrite := modifies a plan
+RefWrite := modify references
+HashX := executes hash program
 
-GroupQ := query for Groups # TODO
 Hash := sha1
 HashList := [sha1]
-HashQ := query for hashes # TODO
-HashWrite := modifies a hash
-HashX := executes hash program
-IdxQ := set of idx
+Bool := true|false
+BoolSet := true|false|toggle
 Key := key string ( no spaces )
-KeyQ := query for keys
 List := String with newlines
-None|Item|List := Ternary from _return_parse
-PlanDir
-PlanQ := query for plans
-PlanWrite := modifies a plan
-RefQ := query for references
-RefWrite := modify references
+None
+Item := somewhat special. really just a single item list
 Stdin := takes stdin for stuff
 String := String without newlines
+Display := sparkles
+
+ErrorCode
+FilePath
+DirectoryPath 
+
