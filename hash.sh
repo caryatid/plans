@@ -92,12 +92,13 @@ _match_key () {  # Regex -> Regex -> [Hash]
 }
 
 ### operations
-_gen_hash () {  # Hash
+_gen_hash () {
     echo -n $count$seed | sha1sum | cut -d' ' -f1 | tr -d '\n'
     count=$(( $count + 1 ))
 }
 
-_get_hdir () {  # TODO validate input
+_get_hdir () {
+    test $(expr length "$1") -eq 40 || { echo bad hash "$1"; return 1 ;}
     prefix=$(echo $1 | cut -c-2)
     suffix=$(echo $1 | cut -c3-)
     hdir="$HDIR/$prefix/$suffix"
@@ -107,7 +108,7 @@ _get_hdir () {  # TODO validate input
 
 _get_hkey () {  # Hash -> Key -> Maybe KeyPath
     test -z "$2" && { echo must provide key; return 1 ;}
-    hkey=$(_get_hdir "$1")/$2
+    hkey=$(_get_hdir "$1")/$2 || return 1
     test -f "$hkey" || touch "$hkey"
     echo -n "$hkey"
 }
@@ -211,3 +212,6 @@ parse-key)
     ;;
 esac
 
+# TODO hash validity is checked at lowest level.
+#      is that correct or should it be verified elsewhere?
+#      think I've an error pushing through and creating dirs

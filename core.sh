@@ -9,7 +9,7 @@ _return_parse () {
         return 0
         ;;
     0)
-        printf 'no matches to provided pattern:\n%s' "$2"
+        printf 'no matches to provided pattern:\n%s\n.\n' "$2"
         return 1
         ;;
     *)
