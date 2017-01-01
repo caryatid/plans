@@ -57,7 +57,7 @@ _list_hashes () {  # [Hash]
     then
         find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/' 
     else
-        cat - | xargs -L1 | cut -d' ' -f1
+        cat - | xargs -L1 | cut -d'|' -f1
     fi | tee $TMP/hashes
     HASH_LIST=1    
 }
@@ -72,7 +72,7 @@ _match_hash () {  # HashPrefix -> [Hash]
     do
         case $h in
         $1*)
-            echo $h | _append name
+            echo $h | _append @name
             ;;
         esac
     done 
@@ -86,7 +86,7 @@ _match_key () {  # Regex -> Regex -> [Hash]
         for k in $(_list_hkeys $h | grep "$key_match")
         do 
             grep -q "$pattern" $(_get_hkey $h $k) || continue
-            echo $h | _append $k x | _append $k
+            echo $h | _append $k | _append @$k
         done
     done 
 }
@@ -140,18 +140,19 @@ _set_key () {  # Hash -> Key -> Bool
     cat - >"$(_get_hkey $1 $2)"
 }
 
-_append () {  # TODO append gets fubared if no space between hash and keys
-              # TODO append an index
-    local key=$1
-    while read h
+_append () {
+    local lookup='';
+    local msg="$1"; local width=$2
+    echo $msg | grep -q '^@' && lookup=true && msg=$(echo $msg | cut -c2-)
+    width=${width:-17}
+    while read hl
     do
-        h_=$(echo $h | cut -d' ' -f1)
-        if test -n "$2"
-        then
-            echo $h \| $key
-        else
-            echo $h \| $(_get_key $h_ $key | cut -c-33)
-        fi
+        echo "$hl" | grep -q -v '|$' && hl=$hl'|'
+        local h=$(echo $hl | cut -d'|' -f1 | xargs)
+        local m="$msg"
+        m=$(echo -n "$m" | tr \\n ' ')
+        test -n "$lookup" && m=$(_get_key $h $msg)
+        printf '%s%*.*s|\n' "$hl" "$width" "$width" "$m" 
     done
 }
 
@@ -215,3 +216,5 @@ esac
 # TODO hash validity is checked at lowest level.
 #      is that correct or should it be verified elsewhere?
 #      think I've an error pushing through and creating dirs
+
+# TODO copy hash

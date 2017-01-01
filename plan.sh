@@ -4,7 +4,7 @@ CORE=./core.sh
 TMP=$($CORE temp-dir)
 trap 'rm -Rf $TMP' EXIT
 PDIR=$($CORE plan-dir) || { $CORE plan-dir; PDIR=$($CORE plan-dir) ;} 
-HASH_X=./hash.sh
+HASH_X=./hash.sh  # TODO determine details here
 DATA_X=./data.sh
 
 HSIZE=100
@@ -15,6 +15,7 @@ PRE_S=__s_  # status
 
 ### parsing
 _parse_plan () {  # TODO implement tops
+                  # TODO fix pattern = '' || '.*' situation
     local hash=''
     local h="$1"
     test -n "$h" && shift
@@ -27,7 +28,7 @@ _parse_plan () {  # TODO implement tops
         hash=$open
         ;;
     r.*)  # refs
-        hash=$(_match_ref "$pattern")
+        hash=$(_match_ref "$pattern" | $HASH_X append @name)
         ;;
     i.*)  # index
         test "$pattern" = '.*' && pattern='0'
@@ -37,8 +38,11 @@ _parse_plan () {  # TODO implement tops
         test "$pattern" = '.*' && pattern=''
         hash=$($HASH_X list-hashes | _get_parents $open | $HASH_X id f_"$pattern")
         ;;
+    g.*)  # groups 
+        test "$pattern" = '.*' && pattern=''
+        hash=$(_match_groups $open "$pattern")        
+        ;;
     c.*)  # children
-        local pattern=$(echo $h | cut -c3-)
         test "$pattern" = '.*' && pattern=''
         hash=$(_list_children $open | $HASH_X id f_"$pattern")
         ;;
@@ -105,16 +109,27 @@ _parse_plan_group () {
 }
 
 ### query
-_list_groups () {
+_list_groups () {  # TODO cut by 5 is a bindy
     local hash=$1
     $HASH_X parse-key $1 | grep "^$PRE_G" | cut -c5-
 }
 
+_match_groups () {
+        local hash=$1
+        local gname=$(echo "$2" | cut -d'_' -f1)
+        local match=$(echo "$2" | cut -d'_' -f2)
+        test -z "$gname" && gname='.*'
+        for g in $(_list_groups $hash | grep "$gname")
+        do
+            $HASH_X key =$hash $PRE_G$g | $HASH_X id f_"$match" | $HASH_X append $g
+        done
+}
+        
 _match_ref () {  # Regex -> [HashPlus]
     ls "$PDIR/refs" | grep "$1" | \
     while read n 
     do
-        echo $(_get_ref "$n") | $HASH_X append $n x
+        echo $(_get_ref "$n") | $HASH_X append $n 
     done
 }
 
@@ -122,7 +137,7 @@ _get_parents () {  # TODO permormance
     local hash=$1
     while read h
     do
-        $DATA_X key =$h +$PRE_P | grep -q $hash && echo $h | $HASH_X append name
+        $DATA_X key =$h +$PRE_P | grep -q $hash && echo $h | $HASH_X append @name
     done
 }
 
@@ -157,10 +172,11 @@ _get_status () {
 
 _list_children () {  # TODO depth
     local hash=$1
-    echo $hash
+    local depth=${2:-0}
+    echo $hash | $HASH_X append $depth
     for h in $($DATA_X key =$hash +$PRE_P)
     do
-        _list_children $h
+        _list_children $h $(( $depth + 1 ))
     done
 }
     
@@ -190,8 +206,12 @@ _tops () {  # TODO get into parsing
 }
 
     
-_display_plan () { # TODO design outputs
-                   # TODO show index
+_display_plan () {
+    local hash=$1; local parent=$2; local type=$3
+}
+
+__display_plan () { # TODO design outputs
+                    # TODO show index
     local hash=$1; local parent=$2; local type=$3
     echo $hash >$TMP/hash
     $HASH_X key $hash name >$TMP/name
@@ -237,10 +257,11 @@ _display_plan () { # TODO design outputs
 _to_list () {
     local hash=$1
     local type=${2:-full}
-    local depth=${3:-0}
-    local max_depth=${4:-9999}
+    local max_depth=${3:-9999}
+    local depth=${4:-0}
     local parent=${5:-NONE}
     local header=${6:-.}
+    test $depth -gt $max_depth && return 0
     test -f $TMP/seen || touch $TMP/seen
     if grep -q $hash $TMP/seen
     then
@@ -254,7 +275,7 @@ _to_list () {
     fi
     for h in $($DATA_X key =$hash +$PRE_P)
     do
-        _to_list $h $type $(( $depth + 1 )) $max_depth $hash "..$header"
+        _to_list $h $type $max_depth $(( $depth + 1 )) $hash "..$header"
     done
 }
 
@@ -302,7 +323,7 @@ _add_to_history () {  # TODO good cause for file locking review
     cp $TMP/histcull $PDIR/history
 }
 
-_handle_plan () {  # query -> header
+_handle_plan () {  # TODO handle err-msg headers nicer
     local header=$($CORE make-header plan "$2")
     hash=$(_parse_plan "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
     _add_to_history $hash
@@ -467,3 +488,7 @@ xx)
     ;;
 esac
 
+# TODO call out to data.sh too
+#      maybe direct access to _reap_souls
+
+# TODO option for append seperator

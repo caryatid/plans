@@ -5,7 +5,7 @@ _return_parse () {
     test -z "$1" && len=0
     case $len in
     1)
-        echo $1 | cut -d' ' -f1
+        echo $1 | cut -d'|' -f1
         return 0
         ;;
     0)
@@ -40,7 +40,8 @@ _init_plan_dir () {
 _error () {   # msg -> header -> code
     ## "test -t"  so header is not output when piping
     local header=$(echo "$2" | xargs -L1)
-    local msg=$(echo "$1" | xargs -L1)
+    # local msg=$(echo "$1" | xargs -L1)
+    local msg="$1"
     # TODO compose headers?
     test -t 1 && test -n "$header" && printf "%s\n" "$header"
     test -n "$msg" && printf "%s\n" "$msg"
