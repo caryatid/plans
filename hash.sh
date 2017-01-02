@@ -140,7 +140,7 @@ _set_key () {  # Hash -> Key -> Bool
     cat - >"$(_get_hkey $1 $2)"
 }
 
-_append () {
+_append () {  # TODO a 'strip' command leavning only hash
     local lookup='';
     local msg="$1"; local width=$2
     echo $msg | grep -q '^@' && lookup=true && msg=$(echo $msg | cut -c2-)
@@ -213,8 +213,5 @@ parse-key)
     ;;
 esac
 
-# TODO hash validity is checked at lowest level.
-#      is that correct or should it be verified elsewhere?
-#      think I've an error pushing through and creating dirs
 
 # TODO copy hash

@@ -4,7 +4,7 @@ CORE=./core.sh
 TMP=$($CORE temp-dir)
 trap 'rm -Rf $TMP' EXIT
 PDIR=$($CORE plan-dir) || { $CORE plan-dir; PDIR=$($CORE plan-dir) ;} 
-HASH_X=./hash.sh  # TODO determine details here
+HASH_X=./hash.sh
 DATA_X=./data.sh
 
 HSIZE=100
@@ -109,7 +109,7 @@ _parse_plan_group () {
 }
 
 ### query
-_list_groups () {  # TODO cut by 5 is a bindy
+_list_groups () {
     local hash=$1
     $HASH_X parse-key $1 | grep "^$PRE_G" | cut -c5-
 }
@@ -133,7 +133,7 @@ _match_ref () {  # Regex -> [HashPlus]
     done
 }
 
-_get_parents () {  # TODO permormance
+_get_parents () {
     local hash=$1
     while read h
     do
@@ -170,7 +170,7 @@ _get_status () {
     echo false; return 1
 }
 
-_list_children () {  # TODO depth
+_list_children () {
     local hash=$1
     local depth=${2:-0}
     echo $hash | $HASH_X append $depth
@@ -188,13 +188,14 @@ _get_membership () {
     done | sort | uniq
 }    
 
-_display_list () {  # TODO move to core.sh?
+_display_list () {
     local header=${2:-''}
     local s=$(printf 's/^/%-10.10s/' "$header")
     sed "$s" $1
 }
 
 _tops () {  # TODO get into parsing
+            # TODO performance; maybe double pass?
     test ! -t 0 && export FROM_STDIN=1
     $HASH_X list-hashes >$TMP/tops
     while read h
@@ -208,52 +209,41 @@ _tops () {  # TODO get into parsing
     
 _display_plan () {
     local hash=$1; local parent=$2; local type=$3
+    local header_fmt='%10.10s: %-70.70s\n'
+    printf "$header_fmt" "id" "$hash $(_get_status)"
+    printf "$header_fmt" "name" "$($HASH_X key $hash name)"
+    for p in $($HASH_X list-hashes | _get_parents $hash | cut -d'|' -f1)
+    do
+        printf "$header_fmt" "$($HASH_X key $p name)" \
+            "[ $(printf '%12.12s,' $(_get_membership $hash $p)) ]"
+    done
+    printf "$header_fmt" children ''
+    _list_children $hash | $HASH_X append @name | _display_list
+    for g in $(_list_groups $hash)
+    do
+        printf "$header_fmt" group "$g"
+        $DATA_X smembers $hash $PRE_G$g | $HASH_X append @name | _display_list
+    done
+    for k in $(_parse_plan_data $hash | grep -v -e"$(printf '%s\n' name creation_time)")
+    do
+        printf "$header_fmt" "$k" ''
+        $HASH_X key =$hash $k | _display_list
+    done
 }
 
-__display_plan () { # TODO design outputs
-                    # TODO show index
-    local hash=$1; local parent=$2; local type=$3
-    echo $hash >$TMP/hash
-    $HASH_X key $hash name >$TMP/name
-    $HASH_X key $hash creation_time | cut -d, -f1 >$TMP/creation_time
-    _get_membership $hash $parent >$TMP/membership
-    # $HASH_X list-hashes | _get_parents $hash >$TMP/parents
-    $HASH_X key $hash +$PRE_P | $HASH_X append >$TMP/children
-    _list_groups $hash >$TMP/groups
-    _parse_plan_data $hash | grep -v -e"$(printf '%s\n' name creation_time)" >$TMP/data
-    _check_status $hash && { local left='['; local right=']' ;}
-    #  TODO these should go as options to append
-    #  maybe all of this should?
 
-    printf '%c %5.5s %c' ${left:-(} "$(cat $TMP/hash)" ${right:-)}
-    printf ' %c %50.50s %c' ${left:-(} "$(cat $TMP/name)" ${right:-)}
-    # printf ' %c %19.19s %c' ${left:-(} "$(cat $TMP/creation_time)" ${right:-)}
-
-    local lists='membership children groups data'
-    case $type in
-    oneline)
-        truncate -s 0 $TMP/status-line
-        for n in $lists
-        do
-            local marker=-
-            test $(wc -l $TMP/$n | cut -d' ' -f1) -ge 1 && marker=x
-            printf '%1.1s[%s]' "$n" "$marker" >>$TMP/status-line
-        done
-        printf ' %s' "$(cat $TMP/status-line)"
-        echo
-        ;;
-    *)
-        echo
-        for n in $lists
-        do
-            printf '    %s:\n' $n
-            _display_list $TMP/$n "    "
-        done
-        printf '.\n'
-        ;;
-    esac
+_tree () {
+    local hash=$1
+    _list_children $hash >$TMP/children
+    while read hl
+    do 
+        local h=$(echo $hl | cut -d'|' -f1)
+        local d=$(echo $hl | cut -d'|' -f2 | xargs -L1)
+        printf '..%0.0s' $(seq $d)
+        printf '%5.5s %s   [%s]\n' $h "$($HASH_X key $h name)" $(_get_status $h)
+    done <$TMP/children
 }
-
+        
 _to_list () {
     local hash=$1
     local type=${2:-full}
@@ -388,12 +378,7 @@ open)
 show) 
     _handle_plan "$@"
     test -n "$1" && shift
-    for h in $($HASH_X list-hashes | _get_parents $hash | cut -d' ' -f1) 
-    do
-        _parent='y'
-        _display_plan $hash $h "$@"
-    done
-    test -n "$_parent" || _display_plan $hash "" "$@"
+    _display_plan $hash "" "$@"
     ;;
 data)
     _handle_plan_data "$@"
@@ -458,10 +443,10 @@ archive)
 help)
     echo you are currently helpless
     ;;
-list)
+tree)
     _handle_plan "$1"
     test -n "$1" && shift
-    _to_list $hash "$@"
+    _tree $hash "$@"
     ;;
 
 hash)
@@ -491,4 +476,3 @@ esac
 # TODO call out to data.sh too
 #      maybe direct access to _reap_souls
 
-# TODO option for append seperator
