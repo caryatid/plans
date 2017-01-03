@@ -173,6 +173,8 @@ _get_status () {
 _list_children () {
     local hash=$1
     local depth=${2:-0}
+    grep -q $hash $TMP/seen && return 0;
+    echo $hash >>$TMP/seen
     echo $hash | $HASH_X append $depth
     for h in $($DATA_X key =$hash +$PRE_P)
     do
@@ -233,42 +235,22 @@ _display_plan () {
 
 
 _tree () {
-    local hash=$1
-    _list_children $hash >$TMP/children
-    while read hl
-    do 
-        local h=$(echo $hl | cut -d'|' -f1)
-        local d=$(echo $hl | cut -d'|' -f2 | xargs -L1)
-        printf '..%0.0s' $(seq $d)
-        printf '%5.5s %s   [%s]\n' $h "$($HASH_X key $h name)" $(_get_status $h)
-    done <$TMP/children
-}
-        
-_to_list () {
-    local hash=$1
-    local type=${2:-full}
-    local max_depth=${3:-9999}
-    local depth=${4:-0}
-    local parent=${5:-NONE}
-    local header=${6:-.}
-    test $depth -gt $max_depth && return 0
+    local hash=$1; local parent="$2"; local header=${3:-.>}; local i=${4:-0}
+    local focus=0; local FOCUS='-'; local SEEN='-'
+    test -n "$parent" && focus=$($DATA_X parse-list $parent $PRE_P c.)
     test -f $TMP/seen || touch $TMP/seen
-    if grep -q $hash $TMP/seen
-    then
-        _display_plan $hash $parent $type >$TMP/plan
-        _display_list $TMP/plan "$header".
-        return 0
-    else
-        _display_plan $hash $parent $type >$TMP/plan
-        _display_list $TMP/plan "$header"\|
-        echo $hash >>$TMP/seen
-    fi
+    grep -q $hash $TMP/seen && SEEN='s'
+    test $i -eq $focus && FOCUS='f'
+    echo $hash >>$TMP/seen
+    printf '%-55.55s [%2.2s][%5.5s][%3.3d][%5.5s]\n' "$header $($HASH_X key $hash name)" "$FOCUS$SEEN" $hash $i $(test "$SEEN" = s || _get_status $hash)
+    test "$SEEN" = 's' && return 0;
     for h in $($DATA_X key =$hash +$PRE_P)
-    do
-        _to_list $h $type $max_depth $(( $depth + 1 )) $hash "..$header"
+    do 
+        i=$(( $i + 1 ))
+        _tree $h $hash ..$header $i
     done
 }
-
+        
 
 ### operations
 _set_ref () {  # Hash -> RefName -> Bool
