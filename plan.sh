@@ -129,7 +129,7 @@ _match_ref () {  # Regex -> [HashPlus]
     ls "$PDIR/refs" | grep "$1" | \
     while read n 
     do
-        echo $(_get_ref "$n") | $HASH_X append $n 
+        echo $(_get_ref "$n") | $HASH_X append "$n" 
     done
 }
 
@@ -173,6 +173,7 @@ _get_status () {
 _list_children () {
     local hash=$1
     local depth=${2:-0}
+    test -f $TMP/seen || touch $TMP/seen
     grep -q $hash $TMP/seen && return 0;
     echo $hash >>$TMP/seen
     echo $hash | $HASH_X append $depth
@@ -458,3 +459,4 @@ esac
 # TODO call out to data.sh too
 #      maybe direct access to _reap_souls
 
+# TODO tree collapse before focus?

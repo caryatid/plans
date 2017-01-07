@@ -1,71 +1,94 @@
-# API
-## CORE
-return-parse List String -> None|Item|List
-plan-dir -> FilePath
-hash-dir -> FilePath
-make-header String String -> String
-err-msg List -> String -> ErrorCode -> List
-temp-dir -> FilePath
-init -> FilePath
+# IDEAS 
+archive concept can hopefully expand into multiple repository transfer and merge?
 
-## HASH
-list-hashes -> HashList
-id HashQ -> Hash
-delete HashQ -> HashWrite
-delete-key HashQ KeyQ -> HashWrite
-key HashQ KeyQ -> List
-set Stdin HashQ KeyQ -> HashWrite
-edit HashQ KeyQ -> HashWrite
-parse-hash HashQ -> Hash
-parse-key HashQ KeyQ -> Key
-append Stdin CmdQ -> List
-
-## PLAN
-rm-ref RefQ -> PlanWrite
-open PlanQ -> RefWrite
-data PlanQ -> List
-organize PlanQ -> PlanWrite
-ref PlanQ RefQ -> RefWrite
-status PlanQ BoolSet -> Bool
-advance PlanQ IdxQ -> PlanWrite
-remove PlanQ PlanQ -> PlanWrite
-add PlanQ PlanQ IdxQ -> PlanWrite
-move PlanQ PlanQ PlanQ IdxQ -> PlanWrite
-group-member PlanQ PlanQ GroupQ -> PlanWrite
-group-add PlanQ PlanQ GroupQ -> PlanWrite
-group-remove PlanQ PlanQ GroupQ -> PlanWrite
-archive DirectoryPath
-help 
-list PlanQ -> Display
-hash CmdQ PlanQ * -> HashX
-
-# DATA
-CmdQ := query of cmd 
-GroupQ := query for Groups 
-HashQ := query for hashes 
-IdxQ := query of index
-KeyQ := query for keys
-PlanQ := query for plans
-RefQ := query for references
-
-HashWrite := modifies a hash
-PlanWrite := modifies a plan
-RefWrite := modify references
-HashX := executes hash program
-
-Hash := sha1
-HashList := [sha1]
-Bool := true|false
-BoolSet := true|false|toggle
-Key := key string ( no spaces )
-List := String with newlines
-None
-Item := somewhat special. really just a single item list
-Stdin := takes stdin for stuff
-String := String without newlines
-Display := sparkles
-
-ErrorCode
-FilePath
-DirectoryPath 
+features:
+    data:
+        plans
+            represents an achievable and testable goal.
+        groups
+            basically a hashtag over plans: global groups of plans by name
+        generics
+            plans used a bit like a pattern or template.
+            initializes a plan with a predefined structure and names
+        history
+            previously referenced plans in order
+        references
+            arbitrary names to reference a plan
+            `open` command sets a special reference
+        procedures
+            indexed lists of ordered plans stored within a plan
+        data
+            arbitrary text data by name stored within a plan
+            
+    queries:
+        plan sub query by: 
+            ref
+                ref query 
+            index
+                index query 
+            parents
+                filter by parents
+            children
+                filter by children
+            groups
+                filter by group query
+            history
+                filter by history query
+            index
+                specify by procedure index
+            hash
+                pass to hash.sh query
+        ref
+            reference names regex
+        history
+            time range, maybe other?
+        group
+            group names regex
+        index shift from:
+            beginning
+            end
+            current position
+    commands:
+        init-generic 
+            creates new tree from a plan; basically a copy but with all new refs.
+              it may be difficult for a "plan" to be the source data.
+        rm-ref
+            removes the reference name ( not the plan )
+        ref
+            set a plan to a reference name
+        open
+            opens a plan; setting the special reference name
+        show
+            plan
+                details baby
+            group
+                oneline display memebers of the group
+            data
+                dump the data; basically a cat. meow.
+            children
+                list or tree format with oneline display
+        status
+            set status
+        advance
+            move the procedure index
+        add
+            add plan to another plan's procedure
+        remove
+            remove plan from another plan's procedure
+        move
+            move plan from one plan's procedure to another's
+        member
+            test group memebership of a plan
+        group
+            add plan to group
+        ungroup
+            remove plan from group
+        archive
+            archive the plan dir
+        import
+            pull in previously made archive
+              there could be all kinds of merge and shit issues here
+              but this is for later
+        hash
+            passes through to hash.sh but "lifts" to a plan query 
 
