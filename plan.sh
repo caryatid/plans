@@ -9,8 +9,8 @@ DATA_X=./data.sh
 
 HSIZE=100
 PRE_M='^__._'
-PRE_P=__p_  # procedure
-PRE_G=__g_  # group
+PRE_P=__p_  #_data:procedures 
+PRE_G=__g_  #_data:group
 PRE_S=__s_  # status
 
 ### parsing

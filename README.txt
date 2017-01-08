@@ -1,94 +1,174 @@
-# IDEAS 
-archive concept can hopefully expand into multiple repository transfer and merge?
+- archive concept can hopefully expand into multiple repository transfer and merge?
+- generics could be data
 
-features:
-    data:
-        plans
-            represents an achievable and testable goal.
-        groups
-            basically a hashtag over plans: global groups of plans by name
-        generics
-            plans used a bit like a pattern or template.
-            initializes a plan with a predefined structure and names
-        history
-            previously referenced plans in order
-        references
-            arbitrary names to reference a plan
-            `open` command sets a special reference
-        procedures
-            indexed lists of ordered plans stored within a plan
-        data
-            arbitrary text data by name stored within a plan
-            
-    queries:
-        plan sub query by: 
-            ref
-                ref query 
-            index
-                index query 
-            parents
-                filter by parents
-            children
-                filter by children
-            groups
-                filter by group query
-            history
-                filter by history query
-            index
-                specify by procedure index
-            hash
-                pass to hash.sh query
-        ref
-            reference names regex
-        history
-            time range, maybe other?
-        group
-            group names regex
-        index shift from:
-            beginning
-            end
-            current position
-    commands:
-        init-generic 
-            creates new tree from a plan; basically a copy but with all new refs.
-              it may be difficult for a "plan" to be the source data.
-        rm-ref
-            removes the reference name ( not the plan )
-        ref
-            set a plan to a reference name
-        open
-            opens a plan; setting the special reference name
-        show
-            plan
-                details baby
-            group
-                oneline display memebers of the group
-            data
-                dump the data; basically a cat. meow.
-            children
-                list or tree format with oneline display
-        status
-            set status
-        advance
-            move the procedure index
-        add
-            add plan to another plan's procedure
-        remove
-            remove plan from another plan's procedure
-        move
-            move plan from one plan's procedure to another's
-        member
-            test group memebership of a plan
-        group
-            add plan to group
-        ungroup
-            remove plan from group
-        archive
-            archive the plan dir
-        import
-            pull in previously made archive
-              there could be all kinds of merge and shit issues here
-              but this is for later
-        hash
-            passes through to hash.sh but "lifts" to a plan query 
+data:
+    - plans:
+        - status
+        - procedure
+        - name
+    - groups:
+        - name
+        - set of plans
+    - generics:
+        - name
+        - creation definition
+    - history:
+        - list of (plan, <open ref name when added to history>)
+    - references:
+        - name
+        - plan
+    - procedures:
+        - index position
+        - list of plans
+    - data:
+        - name
+        - data
+        
+queries:
+    - plan: 
+        - ref: <ref query>
+        - history filter: 
+            - ref: <ref query> 
+            - <hash query>
+        - index: <index query>
+        - parents filter: <hash query> 
+        - children filter: <hash query>
+        - groups filter: <hash query>
+        - any <hash query>
+    - ref: regex | null := <open>
+    - generic: regex | null := <tutorial>  TODO think about this
+    - group: regex | null := <bucket>
+    - index:  # TODO should be defined seperately for data
+        - beginning: [+-]integer
+        - current position | null: [+-]integer
+        - end: [+-]integer
 
+input:
+    - <hash input>
+    - data
+
+output:
+    full: 
+        name: string
+        id: string
+        focus: boolean
+        children: [oneline]
+        group membership: generic list
+        ref membership: generic list
+        status: boolean
+    oneline:
+        name:  string
+        id: string
+        focus: boolean
+        children: boolean
+        group membership: boolean
+        ref membership: boolean
+        status: boolean
+    parse fail: <hash output>
+    generic list: basically 'cat'
+    boolean: true|false|null
+    tree: indended [oneline] via single plan as parent
+
+commands:
+    - null:
+        - name: init-generic
+          args: [<generic query>]
+          side-effects: >
+              TODO consider more structure here?
+              creates a new set of plans, linked as the generic
+              definition specifies.
+        - name: rm-ref
+          args: [<ref query>]
+          side-effects: removes a reference entry.
+        - name: ref
+          side-effects: set a plan to a reference name
+          args:
+            - <plan query>
+            - <ref query>
+          side-effects: set a new reference name to a specific plan
+        - name: open
+          side-effects: sets the special "open" refernce name to a plan
+          args: [<plan query>]
+        - name: add
+          side-effects: adds source to target
+          args:
+            target: <plan query>
+            source: <plan query>
+            position: <index query> | end
+        - name: remove
+          side-effects: removes source from target
+          args:
+            target: <plan query>
+            source: <plan query>
+        - name: move
+          side-effects: moves source from target to destination
+          args:
+            target: <plan query>
+            source: <plan query>
+            desitination: <plan query>
+            position: <index query> | end
+        - name: group
+          side-effects: add plan to group
+          args:
+            - <plan query>
+            - <group query>
+        - name: ungroup
+          side-effects: remove plan from group
+          args:
+            - <plan query>
+            - <group query>
+    - full:
+        - name: show-plan
+          args:
+            - <plan query>
+    - generic list:
+        - name: show-group
+          args:
+            - <group query>
+        - name: show-data
+          args:
+            - <plan query>
+            - <key query>
+    - [oneline]:
+        - name: show-list
+          args:
+            - <plan query>
+    - tree:
+        - name: show-tree
+          args:
+            - <plan query>
+    - boolean:
+        - name: status
+          side-effects: maybe set status
+          args:
+            - <plan query>
+        - name: member
+          args:
+            - <plan query>
+            - <group query>
+    - index:
+        - name: advance
+          side-effects: shift focus of plan
+          args: 
+            - <plan query>
+            - <index query>
+    - hash output:
+        - name: hash
+          side-effects: <any from hash.sh> 
+          args:
+            - <hash command>
+            - <plan query>
+            - <remaining args to hash.sh>
+    archive
+        archive the plan dir
+    import
+        pull in previously made archive
+          there could be all kinds of merge and shit issues here
+          but this is for later
+
+#### TODO move this to hash.sh's files
+hash output:
+    - hash
+    - name
+    - ref names
+    - group memebership
