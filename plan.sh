@@ -3,15 +3,52 @@
 CORE=./core.sh
 TMP=$($CORE temp-dir)
 trap 'rm -Rf $TMP' EXIT
-PDIR=$($CORE plan-dir) || { $CORE plan-dir; PDIR=$($CORE plan-dir) ;} 
 HASH_X=./hash.sh
 DATA_X=./data.sh
-
 HSIZE=100
-PRE_M='^__._'
-PRE_P=__p_  #_data:procedures 
-PRE_G=__g_  #_data:group
-PRE_S=__s_  # status
+
+###
+# data
+
+# - plans: hash data at plan-dir/.plans
+# TODO do *-dir differently
+#     - name: hash key at name key
+#     - status: data boolean at status key
+#     - procedure: data list at procedure key 
+#     - data: keys not matching internal pattern
+PDIR=$($CORE plan-dir) || { $CORE plan-dir; PDIR=$($CORE plan-dir) ;} 
+NAME_KEY=__n_
+STAT_KEY=__s_ 
+PROC_KEY=__p_ 
+KEY_M='^__._'
+
+# - groups: data list in hash at internal group ref
+#     - name: key name at ref
+#     - set of plans: data list at name
+IDIR=TODO
+GRPS_KEY=__g_
+_set_ref $($IHX id ?"$GRPS_KEY") "$GRPS_KEY"
+
+# - templates: data key in hash at internal template ref
+#     - name: key name
+#     - creation definition: data at name
+TPLT_KEY=__t_
+_set_ref $($IHX id ?"$TPLT_KEY") "$TPLT_KEY" 
+
+# - history: asoc history key in hash at internal meta ref
+#     - list of (plan, <open ref name when added to history>)
+HIST_KEY=__h_
+_set_ref $($IHX id ?"$HIST_KEY") "$HIST_KEY" 
+
+# - references: asoc ref key in hash internal meta ref
+#     - asoc of (plan, ref name)
+REFR_KEY=__r_
+_set_ref $($IHX id ?"$REFR_KEY") "$REFR_KEY" 
+
+#
+###
+
+
 
 ### parsing
 _parse_plan () {  # TODO implement tops
