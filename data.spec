@@ -1,173 +1,116 @@
-- archive concept can hopefully expand into multiple repository transfer and merge?
-- templates could be data
-
 data:
-    - plans:
+    - list
         - name
-        - status
-        - procedure
-            - index
-            - set of plans
-        - data
-    - groups:
-        - name
-        - set of plans
-    - templates:
-        - name
-        - creation definition
-    - history:
-        - asoc of (plan, <open ref name when added to history>)
-    - references:
-        - asoc of (plan, ref name)
-    - data:
+        - index
+        - ordered referencs
+    - set
         - name
         - data
+        - references
+    - assoc
+        - name
+        - ordered name reference pairs
+    - boolean
+        - name
+        - true|false
+    - executable
+        - name
+        - interpreter
+        - source
         
 queries:
-    - plan: 
-        - ref: <ref query>
-        - history filter: 
-            - ref: <ref query> 
-            - <hash query>
-        - index: <index query>
-        - parents filter: <hash query> 
-        - children filter: <hash query>
-        - groups filter: <hash query>
-        - any <hash query>
-    - ref: regex | null := <open>
-    - templates: regex | null := <tutorial>  TODO think about this
-    - group: regex | null := <bucket>
-    - index:  # TODO should be defined seperately for data
-        - beginning: [+-]integer
-        - current position | null: [+-]integer
-        - end: [+-]integer
+    - index
+        - start
+        - end
+        - current
 
 input:
-    - <hash input>
-    - data
-
+    hash-list
 output:
-    full: 
-        name: string
-        id: string
-        focus: boolean
-        children: [oneline]
-        group membership: generic list
-        ref membership: generic list
-        status: boolean
-    oneline:
-        name:  string
-        id: string
-        focus: boolean
-        children: boolean
-        group membership: boolean
-        ref membership: boolean
-        status: boolean
-    parse fail: <hash output>
-    generic list: basically 'cat'
-    boolean: true|false|null
-    tree: indended [oneline] via single plan as parent
+    hash-list
+    int
+    value
+    bool
 
 commands:
-    - null:
-        - name: init-generic
-          args: [<generic query>]
-          side-effects: >
-              TODO consider more structure here?
-              creates a new set of plans, linked as the generic
-              definition specifies.
-        - name: rm-ref
-          args: [<ref query>]
-          side-effects: removes a reference entry.
-        - name: ref
-          side-effects: set a plan to a reference name
+    null
+        - name: sadd
           args:
-            - <plan query>
-            - <ref query>
-          side-effects: set a new reference name to a specific plan
-        - name: open
-          side-effects: sets the special "open" refernce name to a plan
-          args: [<plan query>]
-        - name: add
-          side-effects: adds source to target
+            target: <hash query>
+            source: <hash query>
+            key: <key query>
+        - name: srem
           args:
-            target: <plan query>
-            source: <plan query>
-            position: <index query> | end
-        - name: remove
-          side-effects: removes source from target
+            target: <hash query>
+            source: <hash query>
+            key: <key query>
+        - name: lrem
           args:
-            target: <plan query>
-            source: <plan query>
-        - name: move
-          side-effects: moves source from target to destination
+            target: <hash query>
+            source: <hash query>
+            key: <key query>
+        - name: linsert
           args:
-            target: <plan query>
-            source: <plan query>
-            desitination: <plan query>
-            position: <index query> | end
-        - name: group
-          side-effects: add plan to group
+            target: <hash query>
+            source: <hash query>
+            key: <key query>
+            position: <index query>
+        - name: remove-non-existent
           args:
-            - <plan query>
-            - <group query>
-        - name: ungroup
-          side-effects: remove plan from group
+            hash: <hash query>
+            key: <key query>
+        - name: set-interpreter
           args:
-            - <plan query>
-            - <group query>
-    - full:
-        - name: show-plan
+            hash: <hash query>
+            key: <key query>
+    hash-list
+        - name: smembers
           args:
-            - <plan query>
-    - generic list:
-        - name: show-group
+            hash: <hash query>
+            key: <key query>
+        - name: lrange
           args:
-            - <group query>
-        - name: show-data
+            hash: <hash query>
+            key: <key query>
+            start: <index query>
+            stop: <index query>
+    int
+        - name: scard
           args:
-            - <plan query>
-            - <key query>
-    - [oneline]:
-        - name: show-list
+            hash: <hash query>
+            key: <key query>
+        - name: llen
           args:
-            - <plan query>
-    - tree:
-        - name: show-tree
+            hash: <hash query>
+            key: <key query>
+        - name: lpos
           args:
-            - <plan query>
-    - boolean:
-        - name: status
-          side-effects: maybe set status
+            hash: <hash query>
+            key: <key query>
+            position: <index query>
+        - name: lfind
           args:
-            - <plan query>
-        - name: member
+            target: <hash query>
+            source: <hash query>
+            key: <key query>
+        - name: sfind
           args:
-            - <plan query>
-            - <group query>
-    - index:
-        - name: advance
-          side-effects: shift focus of plan
-          args: 
-            - <plan query>
-            - <index query>
-    - hash output:
-        - name: hash
-          side-effects: <any from hash.sh> 
+            target: <hash query>
+            source: <hash query>
+            key: <key query>
+    bool
+        - name: bool
           args:
-            - <hash command>
-            - <plan query>
-            - <remaining args to hash.sh>
-    archive
-        archive the plan dir
-    import
-        pull in previously made archive
-          there could be all kinds of merge and shit issues here
-          but this is for later
+            hash: <hash query>
+            key: <key query>
+            bool: true|false|toggle
+    hash
+        - name: lindex
+          hash: <hash query>
+          key: <key query>
+          position: <index query>
+    value
+        - name: execute
+          hash: <hash query>
+          key: <key query>
 
-#### TODO move this to hash.sh's files
-hash output:
-    - hash
-    - name
-    - ref names
-    - group memebership

@@ -78,10 +78,6 @@ make-header)
 err-msg)
     _error "$@" 
     ;;
-temp-dir)
-    # yer job to clean up bubbo
-    mktemp -d
-    ;;
 init)
     _init_plan_dir
     ;;

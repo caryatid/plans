@@ -1,0 +1,65 @@
+_TMP=$(mktemp -d)
+trap "rm -Rf $_TMP" EXIT
+HX="./hash.sh -D$_TMP/.hash"
+
+cat <<EOF >$_TMP/names
+one
+two
+three
+four
+five
+six and
+seven
+eight and then
+nine for good measure
+EOF
+
+cat <<EOF >$_TMP/keys
+claire
+arthur
+prince
+fireball
+lightning bolt
+homer
+sittups p voyager
+EOF
+
+equal_length () {
+    ll=$(wc -l "$1" | cut -d' ' -f1)
+    lr=$(wc -l "$2" | cut -d' ' -f1)
+    test $ll -eq $lr
+}
+
+while read name
+do
+    $HX id n.name:"$name"
+done <$_TMP/names >$_TMP/hashes
+equal_length $_TMP/names $_TMP/hashes || echo fail
+    
+while read name
+do
+    $HX id s.name:"$name"
+done <$_TMP/names >$_TMP/hashes
+equal_length $_TMP/names $_TMP/hashes || echo fail
+
+while read hash
+do
+    while read key
+    do
+        msg="$key is me"
+        echo $msg | $HX set ..$hash "s.$key"
+        out=$($HX key ..$hash "$key")
+        test "$msg" = "$out" || { echo fail; break ;}
+    done <$_TMP/keys
+done <$_TMP/hashes 
+
+name=$(head -n1 $_TMP/names | xargs -L1)
+h=$($HX id m.name:"$name")
+test "$($HX key ..$h name)" = "$name" || echo fail
+
+for h in $($HX list-hashes)
+do
+    echo $h | $HX append name 5 | $HX append @name
+done
+
+$HX id m.:arthur
