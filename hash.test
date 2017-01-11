@@ -32,34 +32,28 @@ equal_length () {
 
 while read name
 do
-    $HX id n.name:"$name"
+    echo $name | $HX set n. n.name
 done <$_TMP/names >$_TMP/hashes
 equal_length $_TMP/names $_TMP/hashes || echo fail
     
-while read name
-do
-    $HX id s.name:"$name"
-done <$_TMP/names >$_TMP/hashes
-equal_length $_TMP/names $_TMP/hashes || echo fail
-
 while read hash
 do
     while read key
     do
         msg="$key is me"
-        echo $msg | $HX set ..$hash "s.$key"
+        echo $msg | $HX set ..$hash "n.$key" >/dev/null
         out=$($HX key ..$hash "$key")
-        test "$msg" = "$out" || { echo fail; break ;}
+        test "$msg" = "$out" || { echo key fail; break ;}
     done <$_TMP/keys
 done <$_TMP/hashes 
 
 name=$(head -n1 $_TMP/names | xargs -L1)
 h=$($HX id m.name:"$name")
-test "$($HX key ..$h name)" = "$name" || echo fail
+test "$($HX key ..$h name)" = "$name" || echo lookup fail
 
 for h in $($HX list-hashes)
 do
     echo $h | $HX append name 5 | $HX append @name
 done
 
-$HX id m.:arthur
+$HX id m.:

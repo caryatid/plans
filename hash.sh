@@ -31,16 +31,15 @@ echo "$1" | grep -q "^-D" && { HDIR=$(echo "$1" | cut -c3-); shift ;}
 test -d "$HDIR" || mkdir -p "$HDIR"
 
 # - key: filename in sha1 dir
-#     - name: string ( TODO allow spaces )
+#     - name: string 
 #     - value: anything that can go in a file
 
 ###
 # queries:
 
-# - hash: [mns.].* | hash-prefix
+# - hash: [mn].* | hash-prefix
 #     - key-match: k.<key-pattern>:<value_pattern>
-#     - new: n.<key>:<value>  
-#     - singleton s.<key>:<value> 
+#     - new: n.
 #     - no-parse: ..<full sha1>
 #     - hash-prefix-pattern: matches hash prefixes
 _parse_hash () {
@@ -57,16 +56,16 @@ _parse_hash () {
         local match=$(echo "$pattern" | cut -d':' -f2)
         hash=$(_match_key "$key" "$match")
         ;;
-    [ns].)  
-        echo "$pattern" | grep -q -v ':$' && pattern="${pattern}:"
-        local key=$(echo $pattern | cut -d':' -f1)
-        local value=$(echo $pattern | cut -d':' -f2)
-        hash=$(_match_key "$key" "$value")
-        if test $prefix = 'n.' || test -z "$hash"
-        then
-            hash=$(_new_hash)
-            test -n "$key" &&  { echo "$value" | _set_key $hash "$key" ;}
-        fi
+    e.)
+        for h in $(_list_hashes)
+        do
+            test -z "$(_list_hkeys $h)" && echo $h
+        done >$TMP/empty
+        hash=$(head -n1 $TMP/empty)
+        test -z "$head" && hash=$(_new_hash)
+        ;;
+    n.)  
+        hash=$(_new_hash)
         ;;
     ..)  
         hash=$pattern
@@ -82,24 +81,25 @@ _parse_hash () {
 # - key: [sm].* | key-prefix
 #     - singleton: s.<key>
 #     - key-pattern: m.<key-pattern>
-#     - key-prefix: matches key prefix
+#     - exact; <string>
 _parse_key () {
     local key=''
     test -z "$1" && return 1
     local hash=$1
     local k="$2"
+    test -z "$k" && k='.*'
     local prefix=$(echo "$k" | cut -c-2)
     local pattern=$(echo "$k" | cut -c3-)
     case $prefix in
-    s.)
-        _get_key $1 "$pattern" >/dev/null
+    n.)
+        _get_key $hash "$pattern" >/dev/null
         key="$pattern"
         ;;
     m.)
         key=$(_list_hkeys $hash | grep "$pattern")
         ;;
     *)
-        key=$(_list_hkeys $hash | grep "^$k")
+        key=$(_list_hkeys $hash | grep "^$k\$")
         ;;
     esac
     $CORE return-parse "$key" "$k"
@@ -139,12 +139,13 @@ _match_key () {
     val_pattern=${2:-'.*'}
     for h in $(_list_hashes)
     do
-        for k in $(_list_hkeys $h | grep "$key_pattern")
+        _list_hkeys $h | grep "^${key_pattern}\$" >$TMP/hkeys
+        while read k
         do 
             hkey=$(_get_hkey $h "$k")
-            grep -q "$val_pattern" "$hkey" || continue
-            echo $h | _append "$k" | _append @"$k"
-        done
+            test -n "$hkey" && grep -q -v "$val_pattern" "$hkey" && continue
+            echo $h | _append "$k" 12 | _append @"$k"
+        done <$TMP/hkeys
     done 
 }
 
@@ -196,6 +197,7 @@ _set_key () {
     test -z "$2" && echo must provide key && return 1
     local hkey=$(_get_hkey $1 "$2")
     cat - >"$hkey"
+    echo $1
 }
 
 _append () {
@@ -230,7 +232,7 @@ _handle_hash_key () {
 
 
 ###
-# commands: all return; <something> | handler-fail
+# commands: <output>
 
 cmd=key
 test -n "$1" && { cmd=$1; shift ;}
@@ -246,12 +248,6 @@ delete-key)
     _handle_hash_key "$1" "$2"
     hkey=$(_get_hkey $hash "$key")
     rm "$hkey"
-    ;;
-#     - name: set-key
-#       stdin: value
-set)  
-    _handle_hash_key "$1" "$2"
-    _set_key $hash "$key"
     ;;
 #     - name: edit-key
 edit)
@@ -274,6 +270,12 @@ id)
     _handle_hash "$1"
     echo $hash
     ;;
+#     - name: set-key
+#       stdin: value
+set)  
+    _handle_hash_key "$1" "$2"
+    _set_key $hash "$key"
+    ;;
 # value:
 #     - name: get-key
 key)
@@ -285,8 +287,8 @@ parse-hash)
     echo $hash
     ;;
 parse-key)
-    _handle_hash_key "$1" "$2"
-    echo $key
+    _handle_hash_key "$@"
+    echo "$key"
     ;;
 *)
     echo you are currently helpless

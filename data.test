@@ -1,0 +1,50 @@
+_TMP=$(mktemp -d)
+trap "rm -Rf $_TMP" EXIT
+DX="./data.sh -D$_TMP/.hash"
+
+cat <<EOF >$_TMP/names
+one
+two
+three and
+four and    
+EOF
+
+
+equal_length () {
+    ll=$(wc -l "$1" | cut -d' ' -f1)
+    lr=$(wc -l "$2" | cut -d' ' -f1)
+    test $ll -eq $lr
+}
+
+main=$($DX id n.)
+while read name
+do
+    h=$(echo $name | $DX set n. n.name)
+    $DX sadd ..$main ..$h "n.set"
+done <$_TMP/names >$_TMP/hashes
+equal_length $_TMP/names $_TMP/hashes || echo fail
+
+$DX smembers $main | $DX append @name
+
+while read name
+do
+    h=$(echo $name | $DX set n. n.name)
+    $DX linsert ..$main ..$h "n.list"
+done <$_TMP/names >$_TMP/hashes
+equal_length $_TMP/names $_TMP/hashes || echo fail
+
+$DX lrange ..$main list | $DX append @name
+$DX llen ..$main list
+$DX bool ..$main "n.bool"
+$DX bool ..$main "n.bool" toggle
+$DX bool ..$main "n.bool"
+
+i=0
+while read name
+do
+    h=$(echo $name | $DX set n. n.name)
+    $DX ref-add ..$main ..$h "n.refs" "n.r$i" 
+    i=$(( $i + 1 ))
+done <$_TMP/names >$_TMP/hashes
+
+$DX ref ..$main refs k.r1
