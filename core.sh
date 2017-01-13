@@ -37,12 +37,9 @@ _init_plan_dir () {
     touch ".plans/history"
 }
 
-_error () {   # msg -> header -> code
-    ## "test -t"  so header is not output when piping
+_error () {
     local header=$(echo "$2" | xargs -L1)
-    # local msg=$(echo "$1" | xargs -L1)
     local msg="$1"
-    # TODO compose headers?
     test -t 1 && test -n "$header" && printf "%s\n" "$header"
     test -n "$msg" && printf "%s\n" "$msg"
     return ${3:-0}

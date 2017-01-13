@@ -48,3 +48,4 @@ do
 done <$_TMP/names >$_TMP/hashes
 
 $DX ref ..$main refs k.r1
+$DX ref ..$main refs n.r2

@@ -6,332 +6,243 @@ trap 'rm -Rf $TMP' EXIT
 
 ###
 # data
+HSIZE=100
+PDIR=.plans
+echo "$1" | grep -q "^-D" && { PDIR=$(echo "$1" | cut -c3-); shift ;}
+test -d "$PDIR" || mkdir -p "$PDIR"
+IDIR="$PDIR/../.ihash"
+test -d "$IDIR" || mkdir -p "$IDIR"
+
+DATA_P="./data.sh -D$PDIR"
+DATA_I="./data.sh -D$IDIR"
 
 # - plans: hash data at plan-dir/.plans
-# TODO do *-dir differently
 #     - name: hash key at name key
 #     - status: data boolean at status key
 #     - procedure: data list at procedure key 
 #     - data: keys not matching internal pattern
-HSIZE=100
-HDIR=.hash
-echo "$1" | grep -q "^-D" && { HDIR=$(echo "$1" | cut -c3-); shift ;}
-test -d "$HDIR" || mkdir -p "$HDIR"
-IDIR="$HDIR/../.ihash"
-test -d "$IDIR" || mkdir -p "$IDIR"
-
-DATA_H="./data.sh -D$HDIR"
-DATA_I="./data.sh -D$IDIR"
-
 NAME_KEY=__n_
 STAT_KEY=__s_ 
 PROC_KEY=__p_ 
 KEY_M='^__._'
 
-# - groups: data list in hash at internal group ref
-#     - name: key name at ref
-#     - set of plans: data list at name
-GRPS_KEY=__g_
-$DATA_I id m.$GRPS_KEY || 
-_set_ref $($DATA_I id ?"$GRPS_KEY") "$GRPS_KEY"
+CONF_HASH=$(printf '0%0.0s' $(seq 40))
+echo config | $DATA_I set ..$CONF_HASH "n.$NAME_KEY" >/dev/null
+# - references: asoc ref key in hash internal meta ref
+#     - asoc of (plan, ref name)
+#     - open: one special ref for some implicit use
+REF_KEY=__r_
+OPEN_KEY=__o_
 
+GROUP_KEY=__g_
+# - groups: data list in conf hash
+#     - name: key name
+#     - set of plans: data list at name
 # - templates: data key in hash at internal template ref
 #     - name: key name
 #     - creation definition: data at name
-TPLT_KEY=__t_
-_set_ref $($IHX id ?"$TPLT_KEY") "$TPLT_KEY" 
-
 # - history: asoc history key in hash at internal meta ref
 #     - list of (plan, <open ref name when added to history>)
-HIST_KEY=__h_
-_set_ref $($IHX id ?"$HIST_KEY") "$HIST_KEY" 
 
-# - references: asoc ref key in hash internal meta ref
-#     - asoc of (plan, ref name)
-REFR_KEY=__r_
-_set_ref $($IHX id ?"$REFR_KEY") "$REFR_KEY" 
 
 #
 ###
 
+###
+# queries:
 
-
-### parsing
-_parse_plan () {  # TODO implement tops
-                  # TODO fix pattern = '' || '.*' situation
+# - plan: 
+#     - ref: <ref query>
+#     - history filter: 
+#         - ref: <ref query> 
+#         - <hash query>
+#     - index: <index query>
+#     - parents filter: <hash query> 
+#     - children filter: <hash query>
+#     - groups filter: <hash query>
+#     - any <hash query>
+_parse_plan () {
     local hash=''
     local h="$1"
     test -n "$h" && shift
-    local open=$(_get_ref __o_)
-    local pattern=''
-    echo "$h" | grep -q '^.\.' && pattern=${h#??}
+    local open=$(_get_ref "$OPEN_KEY" | cut -d'|' -f1)
+    local prefix=$(echo "$h" | cut -c-2)
+    local pattern=$(echo "$h" | cut -c3-)
     test -z "$pattern" && pattern='.*'
-    case "$h" in
-    .)  # current
+    case "$prefix" in
+    n.)
+        hash=$($DATA_P id n.)
+        echo "$pattern" | $DATA_P set ..$hash "n.$NAME_KEY" >/dev/null
+        ;;
+    o.)  
         hash=$open
         ;;
-    r.*)  # refs
-        hash=$(_match_ref "$pattern" | $DATA append @name)
+    r.)
+        hash=$($DATA_I ref ..$CONF_HASH "n.$REF_KEY" "k.$pattern")
         ;;
-    i.*)  # index
+    i.)
         test "$pattern" = '.*' && pattern='0'
-        hash=$($DATA lindex =$open +$PRE_P "$pattern")
+        hash=$($DATA_P lindex ..$open "n.$PROC_KEY" "s.$pattern")
         ;;
-    p.*)  # parents
+    p.)
         test "$pattern" = '.*' && pattern=''
-        hash=$($DATA list-hashes | _get_parents $open | $DATA id f_"$pattern")
+        hash=$($DATA_P list-hashes | _get_parents $open | $DATA_P id f_"$pattern")
         ;;
-    g.*)  # groups 
+    g.)
+        echo "$pattern" | grep -q -v '\.' && pattern="${pattern}."
+        local g_pattern=$(echo "$pattern" | cut -d'.' -f1)
+        local h_pattern=$(echo "$pattern" | cut -d'.' -f2)
+        _list_groups | grep "$g_pattern" | \
+        while read g
+        do
+            $DATA_I smembers ..$CONF_HASH "n.$GROUP_KEY$g"
+        done | $DATA_P id f_"$h_pattern" >$TMP/gmatch
+        hash=$(cat $TMP/gmatch)
+        ;;
+    c.)
         test "$pattern" = '.*' && pattern=''
-        hash=$(_match_groups $open "$pattern")        
+        hash=$(_list_children $open | $DATA_P id f_"$pattern")
         ;;
-    c.*)  # children
+    t.)
         test "$pattern" = '.*' && pattern=''
-        hash=$(_list_children $open | $DATA id f_"$pattern")
+        hash=$(_tops | $DATA_P id f_"$pattern")
         ;;
-    t.*)  # tops
-        hash=$(echo 'not implemented\nwill be shortly')
-        ;;
-    h.*)  # history
+    h.) # TODO
         test "$pattern" = '.*' && pattern=''
         hash=$(cat $PDIR/history | $DATA id f_"$pattern")
         ;;
-    *)   # pass to hash
-        hash=$($DATA id "$h")
+    *) 
+        hash=$($DATA_P id "$h")
         ;;
     esac
     $CORE return-parse "$hash" "$h" 
 }
 
-_parse_ref () { 
-    local r=${1:-'.*'}
-    local open=$(_get_ref __o_)
-    local ref=''
-    case "$r" in
-    +*)
-        ref=$(echo "$r" | cut -c2-)
-        _set_ref $open "$ref"
-        ;;
-    *)
-        ref=$(ls "$PDIR/refs" | grep "$r")
-        ;;
-    esac
-    $CORE return-parse "$ref" "$r"
-}
+#     - templates: regex | null := <tutorial>  TODO think about this
 
-
-_parse_plan_data () {
-    local hash=$1
-    local d=${2:-'.*'}    
-    local data=''
-    case "$d" in
-    +*)
-        $DATA key $hash "$data"
-        ;;
-    *)
-        data=$($DATA parse-key $hash | grep -v "$PRE_M" | grep "$d")
-        ;;
-    esac
-    $CORE return-parse "$data" "$d"
-}
-
-_parse_plan_group () { 
-    local hash=$1
-    local g=${2:-'.*'}
+#     - group: regex | null := <bucket>
+_parse_group () { 
     local group=''
-    case "$g" in
-    +*)
-        group=$(echo "$g" | cut -c2-)
-        $DATA scard $hash "+$PRE_G$group" >/dev/null
+    local g="$1"
+    local prefix=$(echo "$g" | cut -c-2)
+    local pattern=$(echo "$g" | cut -c3-)
+    case "$prefix" in
+    n.)
+        if test -n "$pattern"
+        then
+            $DATA_I key ..$CONF_HASH "n.$GROUP_KEY$pattern" >/dev/null
+            group="$pattern"
+        fi
+        ;;
+    m.) 
+        pattern=${pattern:-'.*'}
+        echo _list_groups
+        group=$(_list_groups | grep "$pattern")
         ;;
     *)
-        group=$(_list_groups $hash | grep "$g")
+        g=${g:-'.*'}
+        group=$(_list_groups | grep "^$g\$")
         ;;
     esac
     $CORE return-parse "$group" "$g"
 }
 
-### query
 _list_groups () {
-    local hash=$1
-    $DATA parse-key $1 | grep "^$PRE_G" | cut -c5-
-}
-
-_match_groups () {
-        local hash=$1
-        local gname=$(echo "$2" | cut -d'_' -f1)
-        local match=$(echo "$2" | cut -d'_' -f2)
-        test -z "$gname" && gname='.*'
-        for g in $(_list_groups $hash | grep "$gname")
-        do
-            $DATA key =$hash $PRE_G$g | $DATA id f_"$match" | $DATA append $g
-        done
-}
-        
-_match_ref () {  # Regex -> [HashPlus]
-    ls "$PDIR/refs" | grep "$1" | \
-    while read n 
-    do
-        echo $(_get_ref "$n") | $DATA append "$n" 
-    done
+    $DATA_I parse-key ..$CONF_HASH | grep "^$GROUP_KEY" | cut -c5-
 }
 
 _get_parents () {
     local hash=$1
     while read h
     do
-        $DATA key =$h +$PRE_P | grep -q $hash && echo $h | $DATA append @name
+        $DATA_P key ..$h "n.$PROC_KEY" | grep -q $hash && echo $h \
+            | $DATA_P append @$NAME_KEY
     done
 }
 
-_rev_ref () {  # Hash -> [RefName]
+_status () {
     local hash=$1
-    grep -F -H $hash "$PDIR/refs/"* | cut -d':' -f1 | sort | uniq
-}
-  
-_check_status () {
-    local hash=$1
-    local proc=$($DATA key =$hash +$PRE_P)
-    local status=false
-    $DATA bool =$hash +$PRE_S >/dev/null && status=true
-    if test $(echo "$proc" | wc -l) -gt 1 && test $status = true
-    then
-        for h in $proc
-        do
-            _check_status $h || return 1
-        done
-    elif test $status = true
-    then
-        return 0
-    else
-        return 1
-    fi
-}
-
-_get_status () {
-    _check_status "$1" && echo true && return 0
-    echo false; return 1
+    $DATA_P bool ..$hash "n.$STAT_KEY" "$2"
 }
 
 _list_children () {
     local hash=$1
     local depth=${2:-0}
+    local index=${3:-1}
+    local focus=${4:-0}
     test -f $TMP/seen || touch $TMP/seen
     grep -q $hash $TMP/seen && return 0;
     echo $hash >>$TMP/seen
-    echo $hash | $DATA append $depth
-    for h in $($DATA key =$hash +$PRE_P)
+    iout='-'
+    test "$focus" -eq "$index" && iout='x'
+    echo $hash | $DATA_P append "$depth" 5 | $DATA_P append "$iout" 3
+    focus=$($DATA_P lpos ..$hash "n.${PROC_KEY}" c.)
+    for h in $($DATA_P key ..$hash "n.$PROC_KEY")
     do
-        _list_children $h $(( $depth + 1 ))
+        _list_children $h "$(( $depth + 1 ))" "$index" "$focus"
+        index=$(( $index + 1 ))
     done
 }
     
 _get_membership () {
-    local hash=$1; local parent=$2
-    for group in $(_list_groups $parent)
+    local hash=$1
+    _list_groups | \
+    while read group
     do
-        $DATA sfind $parent $hash $PRE_G$group >/dev/null && echo $group
+        $DATA_I sfind ..$CONF_HASH ..$hash "$GROUP_KEY$group" >/dev/null \
+            && echo $group
     done | sort | uniq
 }    
 
-_display_list () {
+_add_header () {
     local header=${2:-''}
-    local s=$(printf 's/^/%-10.10s/' "$header")
+    local width=${3:-10}
+    local s=$(printf 's/^/%-*.*s/' "$header" "$width" "$width")
     sed "$s" $1
 }
 
-_tops () {  # TODO get into parsing
-            # TODO performance; maybe double pass?
-    test ! -t 0 && export FROM_STDIN=1
-    $DATA list-hashes >$TMP/tops
+_tops () {
+    $DATA_P list-hashes >$TMP/tops
     while read h
     do
-        in_refs=""
-        test -n "$(_rev_ref $h)" && in_refs="*"
-        test -z "$(cat $TMP/tops | _get_parents $h)" && echo $h $($DATA key =$h name) "$in_refs"
-    done <$TMP/tops
+        cat $TMP/tops | _get_parents $h 
+    done <$TMP/tops | sort | uniq
 }
 
-    
 _display_plan () {
-    local hash=$1; local parent=$2; local type=$3
-    local header_fmt='%10.10s: %-70.70s\n'
-    printf "$header_fmt" "id" "$hash $(_get_status)"
-    printf "$header_fmt" "name" "$($DATA key $hash name)"
-    for p in $($DATA list-hashes | _get_parents $hash | cut -d'|' -f1)
-    do
-        printf "$header_fmt" "$($DATA key $p name)" \
-            "[ $(printf '%12.12s,' $(_get_membership $hash $p)) ]"
-    done
-    printf "$header_fmt" children ''
-    _list_children $hash | $DATA append @name | _display_list
-    for g in $(_list_groups $hash)
-    do
-        printf "$header_fmt" group "$g"
-        $DATA smembers $hash $PRE_G$g | $DATA append @name | _display_list
-    done
-    for k in $(_parse_plan_data $hash | grep -v -e"$(printf '%s\n' name creation_time)")
-    do
-        printf "$header_fmt" "$k" ''
-        $DATA key =$hash $k | _display_list
-    done
+    local hash=$1
+    _get_membership $hash
+    _list_children $hash | $DATA_P append @"$NAME_KEY"
+    $DATA_P bool ..$hash "n.$STAT_KEY" 
+    $DATA_P list-hashes | _get_parents $hash
 }
 
-
-_tree () {
-    local hash=$1; local parent="$2"; local header=${3:-.>}; local i=${4:-0}
-    local focus=0; local FOCUS='-'; local SEEN='-'
-    test -n "$parent" && focus=$($DATA parse-list $parent $PRE_P c.)
-    test -f $TMP/seen || touch $TMP/seen
-    grep -q $hash $TMP/seen && SEEN='s'
-    test $i -eq $focus && FOCUS='f'
-    echo $hash >>$TMP/seen
-    printf '%-55.55s [%2.2s][%5.5s][%3.3d][%5.5s]\n' "$header $($DATA key $hash name)" "$FOCUS$SEEN" $hash $i $(test "$SEEN" = s || _get_status $hash)
-    test "$SEEN" = 's' && return 0;
-    for h in $($DATA key =$hash +$PRE_P)
-    do 
-        i=$(( $i + 1 ))
-        _tree $h $hash ..$header $i
-    done
-}
-        
-
-### operations
 _set_ref () {
-    local hash=$1; shift
-    test -z "$1" && echo must provide name && return 1
-    echo $hash >"$PDIR/refs/$@"
+    local hash=$1; local rname="$2"
+    $DATA_I ref-add ..$CONF_HASH ..$hash "n.$REF_KEY" "n.$rname"
 }
 
 _get_ref () {
-    test -f "$PDIR/refs/$1" || return 1
-    cat "$PDIR/refs/$1"
-    return 0
+    $DATA_I ref ..$CONF_HASH "n.$REF_KEY" "n.$1"
 }
 
-_rm_ref () {  # RefName -> Bool
-    test -f "$PDIR/refs/$1" || return 1
-    rm "$PDIR/refs/$1"
-    return 0
+_rm_ref () {
+    $DATA_I ref-remove ..$CONF_HASH "n.$REF_KEY" "$1"
 }
 
-_organize () {  # Hash -> Bool
+_organize () {
     local hash=$1
-    for h in $($DATA key =$hash +$PRE_P)
-    do
-        echo $h $($DATA key =$h name) >>$TMP/proc
-    done
+    $DATA_P key ..$hash "n.$PROC_KEY" | $DATA_P append "@$NAME_KEY" | tee $TMP/proc
     $EDITOR $TMP/proc
-    cat $TMP/proc | cut -d' ' -f1 | $DATA set =$hash $PRE_P
+    cat $TMP/proc | cut -d'|' -f1 | $DATA_P set ..$hash "n.$PROC_KEY" >/dev/null
     while read l
     do
-        h=$(echo $l | cut -d' ' -f1)
-        echo $l | tr -s ' ' | cut -d' ' -f2- | $DATA set =$h name
+        h=$(echo $l | cut -d'|' -f1)
+        echo $l | cut -d'|' -f2 | xargs | $DATA_P set ..$h "n.$NAME_KEY" >/dev/null
     done <$TMP/proc
 }    
 
-
-_add_to_history () {  # TODO good cause for file locking review
+_add_to_history () {  # TODO
     local hash=$1
     echo $hash >>$PDIR/history
     tail -n$HSIZE $PDIR/history | cat -n - | sort -k2 -u | sort -n \
@@ -339,21 +250,21 @@ _add_to_history () {  # TODO good cause for file locking review
     cp $TMP/histcull $PDIR/history
 }
 
-_handle_plan () {  # TODO handle err-msg headers nicer
+_handle_plan () {
     local header=$($CORE make-header plan "$2")
     hash=$(_parse_plan "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
-    _add_to_history $hash
 }
 
 _handle_plan_key () {
-    _handle_plan "$1" "$3"
-    local header=$($CORE make-header key "$3")
+    _handle_plan "$1" "$2"
+    local header=$($CORE make-header key "$2")
     key=$($DATA parse-key =$hash "$2") || { $CORE err-msg "$key" "$header" $?; exit 1 ;}
 }
 
 _handle_ref () {
     local header=$($CORE make-header ref "$2")
-    ref=$(_parse_ref "$1") || { $CORE err-msg "$ref" "$header" $?; exit 1 ;}
+    ref=$($DATA_I parse-refname ..$CONF_HASH "n.$REF_KEY" "$1") \
+            || { $CORE err-msg "$ref" "$header" $?; exit 1 ;}
 }
 
 _handle_plan_ref () {
@@ -366,17 +277,15 @@ _handle_target_source () {
     _handle_plan "$2" "$3"; source=$hash
 }
 
-_handle_plan_group () {
-    _handle_plan "$1" "$3"
-    local header=$($CORE make-header group "$3")
-    group=$(_parse_plan_group $hash "$2") \
+_handle_group () {
+    local header=$($CORE make-header group "$2")
+    group=$(_parse_group "$1") \
         || { $CORE err-msg "$group" "$header" $?; exit 1 ;}
 }
 
-_handle_target_source_group () {
-    _handle_plan "$1" "$4"; target=$hash
-    _handle_plan "$2" "$4"; source=$hash
-    _handle_plan_group $target "$3" "$4"
+_handle_plan_group () {
+    _handle_plan "$1" "$3"
+    _handle_group "$2" "$3"
 }
 
 _handle_target_source_destination () {
@@ -385,30 +294,33 @@ _handle_target_source_destination () {
     _handle_plan "$3" "$4"; destination=$hash
 }
     
-_handle_plan_data () {
-    _handle_plan "$1" "$3"
-    local header=$($CORE make-header available-data "$3")
-    data=$(_parse_plan_data $hash "$2") || { $CORE err-msg "$data" "$header" $?; exit 1 ;}
-}
-
 test -n "$1" && { cmd=$1; shift ;}
 case ${cmd:-''} in
 rm-ref)
     _handle_ref "$@"
-    _rm_ref "$ref"
+    $DATA_I ref-remove ..$CONF_HASH "n.$REF_KEY" "$ref"
     ;;
 open) 
     _handle_plan "$@"
-    _set_ref $hash __o_
+    _set_ref $hash $OPEN_KEY
     ;;
-show) 
+show-plan)
     _handle_plan "$@"
-    test -n "$1" && shift
-    _display_plan $hash "" "$@"
+    _display_plan $hash
     ;;
-data)
-    _handle_plan_data "$@"
-    echo $data
+show-list)
+    _handle_plan "$@"
+    _list_children $hash
+    ;;
+show-tree)
+    echo foo
+    ;;
+show-group)
+    _handle_group "$@"
+    $DATA_I key ..$CONF_HASH "n.$GROUP_KEY$group" | $DATA_P append @"$NAME_KEY"
+    ;;
+show-history)
+    echo foo
     ;;
 organize)
     _handle_plan "$@"
@@ -416,55 +328,51 @@ organize)
     ;;
 ref)
     _handle_plan_ref "$@"
-    _set_ref $hash "$ref"
+    $DATA_I ref-add ..$CONF_HASH ..$hash "n.$REF_KEY" "$ref"
     ;;
 status)
     _handle_plan "$1"
-    $DATA bool =$hash +$PRE_S "$2"
-    ;;
-advance)
-    _handle_plan "$1"
-    $DATA lpos =$hash +$PRE_P $2
-    ;;
-remove)
-    _handle_target_source "$@"
-    $DATA lrem =$target =$source +$PRE_P
+    $DATA_P bool ..$hash "n.$STAT_KEY" "$2"
     ;;
 add)
     _handle_target_source "$1" "$2"
-    $DATA linsert =$target =$source +$PRE_P ${3:-e.1}
+    $DATA_P linsert ..$target ..$source "n.$PROC_KEY" ${3:-e.1}
+    ;;
+remove)
+    _handle_target_source "$@"
+    $DATA_P lrem ..$target ..$source "n.$PROC_KEY"
+    ;;
+advance)
+    _handle_plan "$1"
+    $DATA_P lpos ..$hash "n.$PROC_KEY" "$2"
     ;;
 move)
     _handle_target_source_destination "$@"
-    $DATA linsert =$destination =$source +$PRE_P ${4:-e.1}
-    $DATA lrem =$target =$source +$PRE_P 
+    $DATA_P linsert ..$destination ..$source "n.$PROC_KEY" ${4:-e.1}
+    $DATA_P lrem ..$target ..$source "n.$PROC_KEY"
     ;;
-group-member)
-    _handle_target_source_group "$@"
-    $DATA sfind =$target =$source $PRE_G$group
-    ;;
-group-add)
-    _handle_target_source_group "$@"
-    $DATA sadd =$target =$source $PRE_G$group
-    ;;
-group-remove)
-    _handle_target_source_group "$@"
-    $DATA srem =$target =$source $PRE_G$group
-    ;;
-group-show)
+member)
     _handle_plan_group "$@"
-    test -n "$1" && shift
-    test -n "$1" && shift
-    for h in $($DATA smembers $hash $PRE_G$group)
-    do
-        _display_plan $h $hash "$@"
-    done
+    $DATA_I sfind ..$CONF_HASH ..$hash "$GROUP_KEY$group"
+    ;;
+group)
+    _handle_plan_group "$@"
+    $DATA_I sadd ..$CONF_HASH ..$hash "$GROUP_KEY$group"
+    ;;
+ungroup)
+    _handle_plan_group "$@"
+    $DATA_I srem ..$CONF_HASH ..$hash "$GROUP_KEY$group"
     ;;
 
 archive)
     file=$(readlink -f ${1:-$HOME}/plan_archive_$(basename "$PWD").tgz)
     cd "$PDIR"
     tar -czf "$file" .
+    ;;
+name)
+    _handle_plan "$1"
+    test -n "$1" && shift
+    echo "$@" | $DATA_P set ..$hash "n.$NAME_KEY"
     ;;
 help)
     echo you are currently helpless
@@ -474,32 +382,20 @@ tree)
     test -n "$1" && shift
     _tree $hash "$@"
     ;;
-
-hash)
-    test -z "$1" && { echo command required; exit 1 ;}
-    cmd="$1"; shift
-    _handle_plan "$1"; shift
-    $DATA $cmd =$hash "$@"
-    ;;
 xx)
+    _tops
+    ;;
+parse-plan)
     _handle_plan "$@"
-    $DATA list-hashes | _get_parents $hash
+    echo $hash
+    ;;
+append)
+    $DATA_P append "$@"
     ;;
 *)
-    _handle_plan_key "$1" "$cmd"; shift
-    if test -t 0 && test -z "$1"
-    then
-        $DATA edit =$hash +$key
-    elif test -n "$1"
-    then
-        echo "$@" | $DATA set =$hash +$key
-    else
-        $DATA set =$hash +$key
-    fi
+    _handle_plan "$@"
+    test -n "$1" && shift
+    $DATA_P "$cmd" ..$hash "$@"
     ;;
 esac
 
-# TODO call out to data.sh too
-#      maybe direct access to _reap_souls
-
-# TODO tree collapse before focus?

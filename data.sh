@@ -68,27 +68,27 @@ HASH="./hash.sh -D$HDIR"
 _parse_list_idx () {
     local hash=$1
     local key="$2"
-    local new_idx="$3"
+    local i=$3
     local max=$(_list_len $hash "$key")
     local idx=$($HASH key ..$hash "n.$key.i")
-    local pattern=0
-    echo "$new_idx" | grep -q '^.\.' && pattern=${new_idx#??}
+    local prefix=$(echo "$i" | cut -c-2)
+    local pattern=$(echo "$i" | cut -c3-)
     test -z "$pattern" && pattern=0
-    case "$new_idx" in
-    s.*)
+    case "$prefix" in
+    s.)
         idx=$pattern
         ;;
-    e.*)
+    e.)
         idx=$(( $max + 1 - $pattern ))
         ;;
-    c.*)
+    c.)
         idx=$(( $idx + $pattern ))
         ;;
     '')
         idx=$(( $idx + 1 ))
         ;;
     *)
-        idx=$(( $idx + $new_idx ))
+        idx=$(( $idx + "$i" ))
         ;;
     esac
     test -z "$idx" || test $idx -lt 0 && idx=0
@@ -121,13 +121,13 @@ _parse_refname () {
         if test -z "$refname"
         then
             _ref_set $hash "$key" "$pattern" >/dev/null
-            refname=$(_match_ref $hash "$key" "$pattern" | cut -d'|' -f2)
+            refname=$(_match_ref $hash "$key" "$pattern")
         else
-            refname=$(echo $refname)
+            refname=$(echo "$refname")
         fi
         ;;
     *)
-        refname=$(_match_ref $hash "$key")
+        refname=$(_match_ref $hash "$key" | cut -d'|' -f2 | grep "$r")
         ;;
     esac
     refname=$(echo "$refname" | cut -d'|' -f2)
@@ -138,7 +138,7 @@ _ref_set () {
     local hash=$1; local key="$2"; local ref="$3"; local h=$4
     test $(expr length "$h") -eq 40 || h=$(printf '0%0.0s' $(seq 40))
     $HASH key ..$hash "n.$key" | grep -v "$ref" >$TMP/reftmp
-    echo "$h|$ref" >>$TMP/reftmp
+    echo "$h" | $HASH append "$ref" 10 >>$TMP/reftmp
     cat $TMP/reftmp | $HASH set ..$hash "n.$key"
 }
 
@@ -180,7 +180,6 @@ _list_len () {
     $HASH key ..$hash "n.$name" | wc -l
 }
 
-### operations
 _bool_set () {
     local hash=$1; local name="$2"
     case "$3" in 
@@ -231,8 +230,8 @@ _set_list_rem () {
 
 _list_set_index () {
     local hash=$1; local name="$2"; local idx=$3
-    echo $idx | $HASH set ..$hash "n.$name.i"
-    echo $idx
+    echo $idx | $HASH set ..$hash "n.$name.i" >/dev/null
+    $HASH key ..$hash "$name.i"
 }
 
 _exe_set_interpreter () {
@@ -459,6 +458,10 @@ ref-add)
 ref-remove)
     _handle_hash_key_refname "$@"
     _ref_rem $hash "$key" "$refname"
+    ;;
+parse-index)
+    _handle_hash_key_index "$@"
+    echo $index
     ;;
 parse-refname)
     _handle_hash_key_refname "$@"

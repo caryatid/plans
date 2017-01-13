@@ -51,7 +51,7 @@ _parse_hash () {
     local pattern=$(echo "$h" | cut -c3-)
     case $prefix in 
     m.) 
-        echo "$pattern" | grep -q -v ':$' && pattern="${pattern}:"
+        echo "$pattern" | grep -q -v ':' && pattern="${pattern}:"
         local key=$(echo "$pattern" | cut -d':' -f1)
         local match=$(echo "$pattern" | cut -d':' -f2)
         hash=$(_match_key "$key" "$match")
@@ -66,6 +66,7 @@ _parse_hash () {
         ;;
     n.)  
         hash=$(_new_hash)
+        test -n "$pattern" && _get_key $hash "$pattern" >/dev/null
         ;;
     ..)  
         hash=$pattern
@@ -87,24 +88,27 @@ _parse_key () {
     test -z "$1" && return 1
     local hash=$1
     local k="$2"
-    test -z "$k" && k='.*'
     local prefix=$(echo "$k" | cut -c-2)
     local pattern=$(echo "$k" | cut -c3-)
     case $prefix in
     n.)
-        _get_key $hash "$pattern" >/dev/null
-        key="$pattern"
+        if test -n "$pattern"
+        then
+            _get_key $hash "$pattern" >/dev/null
+            key="$pattern"
+        fi
         ;;
     m.)
+        pattern=${pattern:-'.*'}
         key=$(_list_hkeys $hash | grep "$pattern")
         ;;
     *)
+        k=${k:-'.*'}
         key=$(_list_hkeys $hash | grep "^$k\$")
         ;;
     esac
     $CORE return-parse "$key" "$k"
 }
-
 
 HASH_LIST=''  # cache of hashlist indicator
 _list_hashes () {
@@ -121,7 +125,6 @@ _list_hashes () {
 _list_hkeys () {
     ls "$(_get_hdir $1)" | sort | xargs -L1
 }
-
 
 _match_hash () {
     for h in $(_list_hashes)
@@ -215,7 +218,7 @@ _append () {
         else
             m=$(echo -n "$msg" | tr \\n ' ')
         fi
-        printf '%s %-*.*s|\n' "$hl" "$width" "$width" "$m" 
+        printf '%s%-*.*s|\n' "$hl" "$width" "$width" "$m" 
     done
 }
 
