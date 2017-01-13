@@ -88,7 +88,7 @@ _parse_list_idx () {
         idx=$(( $idx + 1 ))
         ;;
     *)
-        idx=$(( $idx + "$i" ))
+        idx=$i
         ;;
     esac
     test -z "$idx" || test $idx -lt 0 && idx=0
@@ -210,9 +210,8 @@ _set_get () {
 
 _set_add () {
     local thash=$1; local shash=$2; local name="$3"
-    $HASH key ..$thash "n.$name" >$TMP/set
-    echo $shash $(cat $TMP/set) | tr ' ' '\n' | sort | uniq \
-        | $HASH set ..$thash "n.$name"
+    $HASH key ..$thash "n.$name" | grep -v $shash >$TMP/set
+    echo $shash $(cat $TMP/set) | tr ' ' '\n' | $HASH set ..$thash "n.$name"
 }
 
 _list_insert () {

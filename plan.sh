@@ -16,11 +16,6 @@ test -d "$IDIR" || mkdir -p "$IDIR"
 DATA_P="./data.sh -D$PDIR"
 DATA_I="./data.sh -D$IDIR"
 
-# - plans: hash data at plan-dir/.plans
-#     - name: hash key at name key
-#     - status: data boolean at status key
-#     - procedure: data list at procedure key 
-#     - data: keys not matching internal pattern
 NAME_KEY=__n_
 STAT_KEY=__s_ 
 PROC_KEY=__p_ 
@@ -28,39 +23,15 @@ KEY_M='^__._'
 
 CONF_HASH=$(printf '0%0.0s' $(seq 40))
 echo config | $DATA_I set ..$CONF_HASH "n.$NAME_KEY" >/dev/null
-# - references: asoc ref key in hash internal meta ref
-#     - asoc of (plan, ref name)
-#     - open: one special ref for some implicit use
 REF_KEY=__r_
 OPEN_KEY=__o_
 
 GROUP_KEY=__g_
-# - groups: data list in conf hash
-#     - name: key name
-#     - set of plans: data list at name
-# - templates: data key in hash at internal template ref
-#     - name: key name
-#     - creation definition: data at name
-# - history: asoc history key in hash at internal meta ref
-#     - list of (plan, <open ref name when added to history>)
-
-
 #
 ###
 
 ###
 # queries:
-
-# - plan: 
-#     - ref: <ref query>
-#     - history filter: 
-#         - ref: <ref query> 
-#         - <hash query>
-#     - index: <index query>
-#     - parents filter: <hash query> 
-#     - children filter: <hash query>
-#     - groups filter: <hash query>
-#     - any <hash query>
 _parse_plan () {
     local hash=''
     local h="$1"
@@ -82,7 +53,7 @@ _parse_plan () {
         ;;
     i.)
         test "$pattern" = '.*' && pattern='0'
-        hash=$($DATA_P lindex ..$open "n.$PROC_KEY" "s.$pattern")
+        hash=$($DATA_P lindex ..$open "n.$PROC_KEY" "$pattern")
         ;;
     p.)
         test "$pattern" = '.*' && pattern=''
@@ -118,9 +89,6 @@ _parse_plan () {
     $CORE return-parse "$hash" "$h" 
 }
 
-#     - templates: regex | null := <tutorial>  TODO think about this
-
-#     - group: regex | null := <bucket>
 _parse_group () { 
     local group=''
     local g="$1"
@@ -146,6 +114,8 @@ _parse_group () {
     esac
     $CORE return-parse "$group" "$g"
 }
+#
+###
 
 _list_groups () {
     $DATA_I parse-key ..$CONF_HASH | grep "^$GROUP_KEY" | cut -c5-
@@ -171,12 +141,11 @@ _list_children () {
     local index=${3:-1}
     local focus=${4:-0}
     test -f $TMP/seen || touch $TMP/seen
-    grep -q $hash $TMP/seen && return 0;
-    echo $hash >>$TMP/seen
-    iout='-'
-    test "$focus" -eq "$index" && iout='x'
+    local iout=''; test "$focus" -eq "$index" && iout='x'
     echo $hash | $DATA_P append "$depth" 5 | $DATA_P append "$iout" 3
     focus=$($DATA_P lpos ..$hash "n.${PROC_KEY}" c.)
+    grep -q $hash $TMP/seen && return 0;
+    echo $hash >>$TMP/seen
     for h in $($DATA_P key ..$hash "n.$PROC_KEY")
     do
         _list_children $h "$(( $depth + 1 ))" "$index" "$focus"
@@ -255,11 +224,6 @@ _handle_plan () {
     hash=$(_parse_plan "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
 }
 
-_handle_plan_key () {
-    _handle_plan "$1" "$2"
-    local header=$($CORE make-header key "$2")
-    key=$($DATA parse-key =$hash "$2") || { $CORE err-msg "$key" "$header" $?; exit 1 ;}
-}
 
 _handle_ref () {
     local header=$($CORE make-header ref "$2")
@@ -313,7 +277,17 @@ show-list)
     _list_children $hash
     ;;
 show-tree)
-    echo foo
+    _handle_plan "$@"
+    _list_children $hash | \
+    while read hline
+    do
+        h=$(echo $hline | cut -d'|' -f1 | xargs -L1)
+        depth=$(( $(echo $hline | cut -d'|' -f2 | xargs -L1) + 1 ))
+        focus=$(echo $hline | cut -d'|' -f3 | xargs -L1)
+        name=$($DATA_P key ..$h "n.$NAME_KEY")
+        header=$(printf '..%.0s' $(seq $depth))
+        printf '%s [%s] %7.7s %s\n' $header ${focus:-' '} $h "$name"
+    done
     ;;
 show-group)
     _handle_group "$@"
@@ -376,14 +350,6 @@ name)
     ;;
 help)
     echo you are currently helpless
-    ;;
-tree)
-    _handle_plan "$1"
-    test -n "$1" && shift
-    _tree $hash "$@"
-    ;;
-xx)
-    _tops
     ;;
 parse-plan)
     _handle_plan "$@"

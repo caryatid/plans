@@ -146,7 +146,8 @@ _match_key () {
         while read k
         do 
             hkey=$(_get_hkey $h "$k")
-            test -n "$hkey" && grep -q -v "$val_pattern" "$hkey" && continue
+            test -s "$hkey" || continue
+            grep -q -v "$val_pattern" "$hkey" && continue
             echo $h | _append "$k" 12 | _append @"$k"
         done <$TMP/hkeys
     done 
