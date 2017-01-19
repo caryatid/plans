@@ -1,47 +1,16 @@
 #!/bin/sh
 
 
-###
-# I/O
-
-# input:
-#     value: anything that could go in a file
-#     hash-list: list of "hash | append-data"
-
-# output:
-#     handler-fail: <error-msg>
-#     hash-list: list of "hash | append-data"
-#     hash: single hash
-#     value: anything that could go in a file
-
 seed=$(cat /dev/urandom | dd bs=255 count=1 2>/dev/null | tr \\0 \ )
 count=0
 CORE=./core.sh
 TMP=$(mktemp -d)
 trap "rm -Rf $TMP" EXIT
 
-###
-# data:
-
-# - hash: directory structure 
-#     - id: sha1 2/38 nested directory ala git
-#     - [key]: set of files in sha dir
 HDIR=.hash
 echo "$1" | grep -q "^-D" && { HDIR=$(echo "$1" | cut -c3-); shift ;}
 test -d "$HDIR" || mkdir -p "$HDIR"
 
-# - key: filename in sha1 dir
-#     - name: string 
-#     - value: anything that can go in a file
-
-###
-# queries:
-
-# - hash: [mn].* | hash-prefix
-#     - key-match: k.<key-pattern>:<value_pattern>
-#     - new: n.
-#     - no-parse: ..<full sha1>
-#     - hash-prefix-pattern: matches hash prefixes
 _parse_hash () {
     local hash=''
     local h="$1"
@@ -78,11 +47,6 @@ _parse_hash () {
     $CORE return-parse "$hash" "$h"
 }
 
-
-# - key: [sm].* | key-prefix
-#     - singleton: s.<key>
-#     - key-pattern: m.<key-pattern>
-#     - exact; <string>
 _parse_key () {
     local key=''
     test -z "$1" && return 1
@@ -201,7 +165,6 @@ _set_key () {
     test -z "$2" && echo must provide key && return 1
     local hkey=$(_get_hkey $1 "$2")
     cat - >"$hkey"
-    echo $1
 }
 
 _append () {
@@ -234,63 +197,46 @@ _handle_hash_key () {
     key=$(_parse_key $hash "$2") || { $CORE err-msg "$key" "$header" $?; exit $? ;}
 }
 
-
-###
-# commands: <output>
-
-cmd=key
-test -n "$1" && { cmd=$1; shift ;}
+cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
+        "$($CORE make-header command hash)" $?; exit $? ;}
+test -n "$1" && shift
 case "$cmd" in
-# null:
-#     - name: delete
 delete)
     _handle_hash "$1"
     _rm_hash $hash
     ;;
-#     - name: delete-key
 delete-key)
     _handle_hash_key "$1" "$2"
     hkey=$(_get_hkey $hash "$key")
     rm "$hkey"
     ;;
-#     - name: edit-key
 edit)
     _handle_hash_key "$1" "$2"
     _edit_key $hash "$key"
     ;;
-# hash-list:
-#     - name: list-hashes
-list-hashes)
+list-hashes) # hash-list
     _list_hashes 
     ;;
-#     - name: append
-#       args: <value query> width 
-append)
+append) # hash-list
     _append "$@"
     ;;
-# hash:
-#     - name: id
-id)
+id) # hash
     _handle_hash "$1"
     echo $hash
     ;;
-#     - name: set-key
-#       stdin: value
 set)  
     _handle_hash_key "$1" "$2"
     _set_key $hash "$key"
     ;;
-# value:
-#     - name: get-key
-key)
+key) # value
     _handle_hash_key "$1" "$2"
     _get_key $hash "$key"
     ;;
-parse-hash)
+parse-hash) # hash
     _handle_hash "$1"
     echo $hash
     ;;
-parse-key)
+parse-key) # key
     _handle_hash_key "$@"
     echo "$key"
     ;;

@@ -56,6 +56,26 @@ _ask_to_init () {
     return 1
 }
 
+_parse_cmd () {
+    local cmd=''
+    local cfile=$(readlink -f "$1")
+    local cmds=$(grep -o '^[^[:space:]]\+)' "$cfile" | tr -d ')')
+    local c=${2:-'.*'}
+    local prefix=$(echo "$c" | cut -c-2)
+    local pattern=$(echo "$c" | cut -c3-)
+    case "$prefix" in
+    ..)
+        cmd="$pattern"
+        ;;
+    *)
+        cmd=$(echo "$cmds" | grep "^$c\$")
+        test -z "$cmd" && cmd=$(grep -o '^[^[:space:]]\+)' "$cfile" | tr -d ')' | grep "$c")
+        test $(echo "$cmd" | wc -l) -le 1 && cmd="$c"
+        ;;
+    esac
+    _return_parse "$cmd" "$c"
+}
+
 cmd=plan-dir
 test -n "$1" && cmd="$1" && shift
 case "$cmd" in
@@ -68,6 +88,9 @@ plan-dir)
 hash-dir)
     _get_plan_dir >/dev/null || { _ask_to_init; exit 1 ;}
     echo $(_get_plan_dir)/.hash
+    ;;
+parse-cmd)
+    _parse_cmd "$@"
     ;;
 make-header)
     printf '[ %s ] - %s -\n' "$1" "${2:--}"
