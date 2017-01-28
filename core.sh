@@ -68,9 +68,7 @@ _parse_cmd () {
         cmd="$pattern"
         ;;
     *)
-        cmd=$(echo "$cmds" | grep "^$c\$")
-        test -z "$cmd" && cmd=$(grep -o '^[^[:space:]]\+)' "$cfile" | tr -d ')' | grep "$c")
-        test $(echo "$cmd" | wc -l) -le 1 && cmd="$c"
+        cmd=$(echo "$cmds" | grep "^$c")
         ;;
     esac
     _return_parse "$cmd" "$c"

@@ -17,18 +17,18 @@ DATA_P="./data.sh -D$PDIR"
 DATA_I="./data.sh -D$IDIR"
 
 NAME_KEY=__n_
+DESC_KEY=__d_
 STAT_KEY=__s_ 
 PROC_KEY=__p_ 
 PURSUIT_KEY=__u_
 STASH_KEY=__b_
+REF_KEY=__r_
+OPEN_KEY=__o_
+GROUP_KEY=__g_
 KEY_M='^__._'
 
 CONF_HASH=$(printf '0%0.0s' $(seq 40))
 echo config | $DATA_I ..set ..$CONF_HASH "n.$NAME_KEY" >/dev/null
-REF_KEY=__r_
-OPEN_KEY=__o_
-
-GROUP_KEY=__g_
 
 _parse_plan () {
     local hash=''
@@ -257,6 +257,20 @@ _add_to_history () {  # TODO
     cp $TMP/histcull $PDIR/history
 }
 
+_show_or_set () {
+    test -z "$1" && return 1
+    local key="$1"; shift
+    if test -z "$1"
+    then 
+        $DATA_P ..key ..$hash "n.$key"
+    elif test "$1" = '-'
+    then
+        $DATA_P ..set ..$hash "n.$key"
+    else
+        echo "$@" | $DATA_P ..set ..$hash "n.$key"
+    fi
+}
+
 _handle_plan () {
     local header=$($CORE make-header plan "$2")
     hash=$(_parse_plan "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
@@ -334,7 +348,12 @@ status)
 name)
     _handle_plan "$1"
     test -n "$1" && shift
-    echo "$@" | $DATA_P ..set ..$hash "n.$NAME_KEY"
+    _show_or_set "$NAME_KEY" "$@"
+    ;;
+description)
+    _handle_plan "$1"
+    test -n "$1" && shift
+    _show_or_set "$DESC_KEY" "$@"
     ;;
 show-plan)
     _handle_plan "$@"
@@ -433,7 +452,7 @@ show-pursuits)
     _show_set $CONF_HASH $PURSUIT_KEY "$DATA_I" "$@"
     ;;
 show-goals)
-    $DATA_P ..list-hashes
+    $DATA_P ..list-hashes | $DATA_P ..append @$NAME_KEY 23
     ;;
 show-refs)
     _show_set $CONF_HASH $REF_KEY "$DATA_I" "$@"
@@ -488,13 +507,10 @@ parse-plan)
 append)
     $DATA_P ..append "$@"
     ;;
-xx)
-    _tops
-    ;;
 *)
     _handle_plan "$@"
     test -n "$1" && shift
-    $DATA_P "$cmd" ..$hash "$@"
+    $DATA_P .."$cmd" ..$hash "$@"
     ;;
 esac
 

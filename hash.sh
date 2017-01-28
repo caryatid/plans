@@ -112,7 +112,7 @@ _match_key () {
             hkey=$(_get_hkey $h "$k")
             test -s "$hkey" || continue
             grep -q -v "$val_pattern" "$hkey" && continue
-            echo $h | _append "$k" 12 | _append @"$k"
+            echo $h | _append "$k" 8 | _append @"$k" 23
         done <$TMP/hkeys
     done 
 }
