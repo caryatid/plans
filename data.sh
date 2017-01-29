@@ -115,7 +115,7 @@ _set_list_find () {
 _list_range () {
     local hash=$1; local name="$2"; local lower=$3; local upper=$4
     test $lower -eq 0 && lower=1
-    local sed_e=$(printf '%s,%sp' $lower "$upper")
+    local sed_e=$(printf '%s,%sp' $lower $upper)
     $HASH ..key ..$hash "n.$name" | sed -n "$sed_e"
 }
 
@@ -192,7 +192,7 @@ _execute () {
     $HASH ..key ..$hash "n.$name" | $interpreter
 }
     
-_reap_souls () { # TODO
+_reap_souls () {
     local hash=$1; local name="$2"
     local exists=$($HASH ..list-hashes)
     _set_get $hash $name | grep -e"$exists" >$TMP/set
@@ -253,19 +253,9 @@ _handle_target_source_key_refname () {
     _handle_hash_key_refname $target "$key" "$4" "$5"
 }
 
-# show
-#   set, refs, list, ref
-# add, remove, index, len
-#   set, refs, list
-# cursor, range, focus
-#   list
-# bool
-#   bool
-# execute, set-interpreter
-#   executable
-
 cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
         "$($CORE make-header command data)" $?; exit $? ;}
+
 test -n "$1" && shift
 case $cmd in 
 show-set|show-refs|show-list)
@@ -316,7 +306,7 @@ range-list)
     _handle_hash_key_lower_upper "$1" "$2" "${3:-0}" "${4:-e.1}"
     _list_range $hash $key $lower $upper
     ;;
-focus-list)
+at-index-list)
     _handle_hash_key_index "$@"
     _list_index $hash $key $index
     ;;
@@ -341,7 +331,7 @@ parse-refname)
     echo $refname
     ;;
 *)
-    $HASH $cmd "$@"
+    $HASH ..$cmd "$@"
 esac
 
 # 

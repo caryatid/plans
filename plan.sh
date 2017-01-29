@@ -59,7 +59,7 @@ _parse_plan () {
         ;;
     i.)
         test "$pattern" = '.*' && pattern='0'
-        hash=$($DATA_P ..focus-index ..$open "n.$PROC_KEY" "$pattern")
+        hash=$($DATA_P ..at-index-list ..$open "n.$PROC_KEY" "$pattern")
         ;;
     p.)
         test "$pattern" = '.*' && pattern=''
@@ -322,16 +322,6 @@ _handle_target_source_destination () {
     _handle_plan "$3" "$4"; destination=$hash
 }
 
-# open, status, name, show
-#     plan
-# advance
-#     procedure
-# edit, add, remove, show,     
-#     group, pursuits, goals, refs, history, procedure, stash
-# delete
-#     group, plan
-# overview
-# archive
 
 cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
         "$($CORE make-header command plan)" $?; exit $? ;}

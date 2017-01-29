@@ -25,14 +25,6 @@ _parse_hash () {
         local match=$(echo "$pattern" | cut -d':' -f2)
         hash=$(_match_key "$key" "$match")
         ;;
-    e.)
-        for h in $(_list_hashes)
-        do
-            test -z "$(_list_hkeys $h)" && echo $h
-        done >$TMP/empty
-        hash=$(head -n1 $TMP/empty)
-        test -z "$head" && hash=$(_new_hash)
-        ;;
     n.)  
         hash=$(_new_hash)
         test -n "$pattern" && _get_key $hash "$pattern" >/dev/null
@@ -199,6 +191,7 @@ _handle_hash_key () {
 
 cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
         "$($CORE make-header command hash)" $?; exit $? ;}
+
 test -n "$1" && shift
 case "$cmd" in
 delete)
@@ -214,13 +207,13 @@ edit)
     _handle_hash_key "$1" "$2"
     _edit_key $hash "$key"
     ;;
-list-hashes) # hash-list
+list-hashes) 
     _list_hashes 
     ;;
-append) # hash-list
+append)
     _append "$@"
     ;;
-id) # hash
+id)
     _handle_hash "$1"
     echo $hash
     ;;
@@ -228,15 +221,15 @@ set)
     _handle_hash_key "$1" "$2"
     _set_key $hash "$key"
     ;;
-key) # value
+key)
     _handle_hash_key "$1" "$2"
     _get_key $hash "$key"
     ;;
-parse-hash) # hash
+parse-hash)
     _handle_hash "$1"
     echo $hash
     ;;
-parse-key) # key
+parse-key)
     _handle_hash_key "$@"
     echo "$key"
     ;;
