@@ -15,7 +15,6 @@ _parse_hash () {
     local hash=''
     local h="$1"
     test -n "$h" && shift
-    echo "$h" | grep -q '^f_' && { h=${h#??}; FROM_STDIN=1 ;}
     local prefix=$(echo "$h" | cut -c-2)
     local pattern=$(echo "$h" | cut -c3-)
     case $prefix in 
@@ -69,13 +68,9 @@ _parse_key () {
 HASH_LIST=''  # cache of hashlist indicator
 _list_hashes () {
     test -n "$HASH_LIST" && { cat $TMP/hashes; return 0 ;}
-    if test -z "$FROM_STDIN"
-    then
-        find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/' 
-    else
-        cat - | xargs -L1 | cut -d'|' -f1
-    fi | tee $TMP/hashes
-    HASH_LIST=1    
+    find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/' \
+        | tee $TMP/hashes
+    HASH_LIST=1
 }
 
 _list_hkeys () {

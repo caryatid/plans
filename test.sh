@@ -52,4 +52,22 @@ $DATA ..bool ..$ID_BOOL n.bool
 $DATA ..bool ..$ID_BOOL bool toggle
 
 # plan
-$PLAN
+$PLAN new-pursuit pirate
+$PLAN add 'n.learn to sail'
+$PLAN add 'n.crew'
+$PLAN add 'n.boat'
+$PLAN add 'n.materials'
+$PLAN open _.materials
+$PLAN move p. _.'crew'  # parent is source
+$PLAN move p. _.'boat'
+$PLAN stash fix door
+$PLAN stash finish plan.sh
+$PLAN stash usb linux
+$PLAN stash computing env
+$PLAN open '_.learn to sail'
+$PLAN add 'n.navigation'
+$PLAN add 'n.ship operation'
+$PLAN add 'n.international law'
+$PLAN add 'n.foreign language'
+$PLAN move o. _.foreign s.0  # open is source
+$PLAN open _.pirate
