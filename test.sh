@@ -52,7 +52,7 @@ $DATA ..bool ..$ID_BOOL n.bool
 $DATA ..bool ..$ID_BOOL bool toggle
 
 # plan
-$PLAN new-pursuit pirate
+$PLAN pursuit 'n.become pirate' n.pirate
 $PLAN add 'n.learn to sail'
 $PLAN add 'n.crew'
 $PLAN add 'n.boat'
@@ -71,3 +71,5 @@ $PLAN add 'n.international law'
 $PLAN add 'n.foreign language'
 $PLAN move o. _.foreign s.0  # open is source
 $PLAN open _.pirate
+$PLAN show$
+$PLAN show-stash

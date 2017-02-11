@@ -66,6 +66,7 @@ _parse_key () {
 }
 
 HASH_LIST=''  # cache of hashlist indicator
+              # could just check size of $TMP/hashes ?
 _list_hashes () {
     test -n "$HASH_LIST" && { cat $TMP/hashes; return 0 ;}
     find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/' \
