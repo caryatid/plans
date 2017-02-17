@@ -21,6 +21,7 @@ STAT_KEY=__b_
 OPEN_KEY=__o_
 KEY_M='^__._'
 
+HEADER='\u254f-%-37.37s-\u254f\n'
 
 CONF_HASH=$(printf '0%.0s' $(seq 40))
 echo config | $DATA ..set ..$CONF_HASH "n.$NAME_KEY" >/dev/null
@@ -177,18 +178,14 @@ _tops () {
 
 _display_plan () {
     local hash=$1; local depth=${2:-2}
-    printf '\u254f%s\u254f\n' refs
-    printf '  %s\n' $($DATA ..key ..$CONF_HASH n.$PURSUIT_KEY \
-                      | grep $hash | cut -d'|' -f2)
-    printf '\u254f%s\u254f\n' groups
+    printf "$HEADER" name
+    printf '  %s\n' $($DATA ..key ..$hash n.$NAME_KEY)
+    printf "$HEADER" groups
     printf '  %s\n' $(_get_membership $hash)
-    printf '\u254f%s\u254f\n' children
-    _show_tree $hash $depth | xargs -Ixx printf '  %s\n' "xx"
-    printf '\u254f%s\u254f\n' status
+    printf "$HEADER" procedure
+    printf '  %s\n' "$($DATA ..key ..$hash n.$PROC_KEY | $DATA ..append @$NAME_KEY)"
+    printf "$HEADER" status
     printf '  %s\n' $($DATA ..bool ..$hash "n.$STAT_KEY")
-#    printf '\u254f%s\u254f\n' parents
-#    $DATA ..list-hashes | _get_parents $hash \
-#        | xargs -Ixx printf '  %s\n' "xx"
 }
 
 _show_tree () {
@@ -228,11 +225,6 @@ _organize () {
         echo $l | cut -d'|' -f2 | xargs | $DATA ..set ..$h "n.$NAME_KEY" >/dev/null
     done <$TMP/proc
 }    
-
-_show_set () {
-    local hash=$1; local key="$2"; local depth=${3:-1}
-    $DATA ..show-set ..$hash "n.$key" | $DATA ..append @$NAME_KEY
-}
 
 _add_to_history () {  # TODO
     local hash=$1
@@ -311,7 +303,7 @@ open)
     _open $hash
     ;;
 status)
-    $DATA ..bool ..$OPEN "n.$STAT_KEY" "$2"
+    $DATA ..bool ..$OPEN "n.$STAT_KEY" "$1"
     ;;
 name)
     _handle_plan "$@"
@@ -380,9 +372,8 @@ show-pursuits)
     do
         h=$(echo $pursuit | cut -d'|' -f1)
         n=$(echo $pursuit | cut -d'|' -f2)
-        echo $n
+        printf "$HEADER" $n
         echo $h | $DATA ..append @$NAME_KEY 23
-        echo
     done
     ;;
 show-goals)
@@ -395,15 +386,17 @@ show-groups)
     _list_groups |
     while read group
     do
-        echo $group
-        _show_set $CONF_HASH $GROUP_KEY$group "$@"
+        printf "$HEADER" $group
+        $DATA ..show-set ..$CONF_HASH "n.$GROUP_KEY$group" \
+            | $DATA ..append @$NAME_KEY
     done    
     ;;
 show)
     _show_tree $OPEN 
     ;;
 show-stash)
-    _show_set $CONF_HASH $STASH_KEY "$@"
+        $DATA ..show-set ..$CONF_HASH "n.$STASH_KEY" \
+            | $DATA ..append @$NAME_KEY
     ;;
 move)
     _handle_target_source "$@"
@@ -432,6 +425,10 @@ parse-plan)
     ;;
 append)
     $DATA ..append "$@"
+    ;;
+xx)
+    _handle_plan "$@"
+    _list_children $hash
     ;;
 *)
     _handle_plan "$@"
