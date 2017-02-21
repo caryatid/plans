@@ -21,7 +21,7 @@ STAT_KEY=__b_
 OPEN_KEY=__o_
 KEY_M='^__._'
 
-HEADER='\u254f-%-37.37s-\u254f\n'
+HEADER='|-%-37.37s-|'
 
 CONF_HASH=$(printf '0%.0s' $(seq 40))
 echo config | $DATA ..set ..$CONF_HASH "n.$NAME_KEY" >/dev/null
@@ -193,21 +193,21 @@ _show_tree () {
     _list_children $hash $max | \
     while read hline
     do
-        local h=$(echo $hline | cut -d'|' -f1 | xargs -L1)
-        local depth=$(echo $hline | cut -d'|' -f2 | xargs -L1)
-        local focus=$(echo $hline | cut -d'|' -f3 | xargs -L1)
-        local pursuit=$(echo $hline | cut -d'|' -f4 | xargs -L1)
-        local status=$(echo $hline | cut -d'|' -f5 | xargs -L1)
-        local seen=$(echo $hline | cut -d'|' -f6 | xargs -L1)
-        local index=$(echo $hline | cut -d'|' -f7 | xargs -L1)
+        local h=$(echo $hline | cut -d'|' -f1 | xargs -n1)
+        local depth=$(echo $hline | cut -d'|' -f2 | xargs -n1)
+        local focus=$(echo $hline | cut -d'|' -f3 | xargs -n1)
+        local pursuit=$(echo $hline | cut -d'|' -f4 | xargs -n1)
+        local status=$(echo $hline | cut -d'|' -f5 | xargs -n1)
+        local seen=$(echo $hline | cut -d'|' -f6 | xargs -n1)
+        local index=$(echo $hline | cut -d'|' -f7 | xargs -n1)
         test "$seen" = '.' || continue
         local name=$($DATA ..key ..$h "n.$NAME_KEY")
         test "$pursuit" != '.' && name="[$name]"
         local header=''
         test $depth -ge 1 && header=$header$(printf \
-            '\u255F\u2508\u2508%.0s' $(seq $depth))
+            '|--%.0s' $(seq $depth))
         local st=$(printf '%1.1s' "$status" "$focus")
-        local cart=$(printf '%s\u2553\u2524%2.2d %s %s' "$header" $index $st "$name")
+        local cart=$(printf '%s|> (%2.2d) %s %s' "$header" $index $st "$name")
         printf '%7.7s %-75.75s\n' $h "$cart"
         $DATA ..key ..$h "n.$DESC_KEY" | sed 's/^/     /'
     done
@@ -227,11 +227,7 @@ _organize () {
 }    
 
 _add_to_history () {  # TODO
-    local hash=$1
-    echo $hash >>$PDIR/history
-    tail -n$HSIZE $PDIR/history | cat -n - | sort -k2 -u | sort -n \
-        | xargs -L1 | cut -d' ' -f2 >$TMP/histcull
-    cp $TMP/histcull $PDIR/history
+    echo not implemented
 }
 
 _show_or_set () {
@@ -395,8 +391,15 @@ show)
     _show_tree $OPEN 
     ;;
 show-stash)
-        $DATA ..show-set ..$CONF_HASH "n.$STASH_KEY" \
-            | $DATA ..append @$NAME_KEY
+    $DATA ..show-set ..$CONF_HASH "n.$STASH_KEY" \
+        | $DATA ..append @$NAME_KEY
+    ;;
+un-stash)
+    _handle_plan "$@"
+    $DATA ..index-set ..$CONF_HASH ..$hash n.$STASH_KEY \
+        || { echo $hash not in stash; exit ;}
+    $DATA ..remove-list ..$CONF_HASH ..$hash n.$STASH_KEY
+    $DATA ..add-list ..$OPEN ..$hash n.$PROC_KEY ${3:-e.1}
     ;;
 move)
     _handle_target_source "$@"
@@ -404,12 +407,7 @@ move)
     $DATA ..add-list ..$OPEN ..$source "n.$PROC_KEY" ${3:-e.1}
     ;;
 overview)
-    echo pursuits >$TMP/pursuits
-    printf '  %s\n' "$($DATA ..show-set ..$CONF_HASH n.$PURSUIT_KEY \
-                       | cut -d'|' -f2)" >>$TMP/pursuits
-    echo groups >$TMP/groups
-    printf '  %s\n' "$(_list_groups)" >>$TMP/groups
-    paste -d^ $TMP/pursuits $TMP/groups | column -t -s^ -o "$(printf ' \u257f ')"
+    echo not implemented
     ;;
 archive)
     file=$(readlink -f ${1:-$HOME}/plan_archive_$(basename "$PWD").tgz)

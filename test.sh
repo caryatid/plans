@@ -41,7 +41,7 @@ ID_REF=$($DATA ..show-ref ..$ID refs k.second | cut -d'|' -f1)
 $DATA ..index-ref ..$ID ..$ID_REF refs
 echo list | $DATA ..set n. n.name
 ID_LIST=$($DATA ..id m.name:list)
-seq 10 | xargs -Ixx $DATA ..add-list ..$ID_LIST n. n.list-test e.1 | nl
+seq 10 | xargs -Ixx $DATA ..add-list ..$ID_LIST n. n.list-test e.1 
 $DATA len ..$ID_LIST list-test
 $DATA ..at-index-list ..$ID_LIST list-test s.2
 $DATA ..cursor-list ..$ID_LIST list-test s.3

@@ -38,7 +38,7 @@ _init_plan_dir () {
 }
 
 _error () {
-    local header=$(echo "$2" | xargs -L1)
+    local header=$(echo "$2" | tr '\n' '\0' | xargs -0 -n1)
     local msg="$1"
     test -t 1 && test -n "$header" && printf "%s\n" "$header"
     test -n "$msg" && printf "%s\n" "$msg"
@@ -59,7 +59,7 @@ _ask_to_init () {
 _parse_cmd () {
     local cmd=''
     local cfile=$(readlink -f "$1")
-    local cmds=$(grep -o '^[^[:space:]]\+)' "$cfile" | tr -d ')')
+    local cmds=$(sed -n 's/\(^[^[:space:]]\+)\)/\1/p' "$cfile" | tr -d ')')
     local c=${2:-'.*'}
     local prefix=$(echo "$c" | cut -c-2)
     local pattern=$(echo "$c" | cut -c3-)

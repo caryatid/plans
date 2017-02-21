@@ -69,13 +69,13 @@ HASH_LIST=''  # cache of hashlist indicator
               # could just check size of $TMP/hashes ?
 _list_hashes () {
     test -n "$HASH_LIST" && { cat $TMP/hashes; return 0 ;}
-    find $HDIR -type d | grep -o '../.\{38\}$' | tr -d '/' \
+    find $HDIR -type d | sed "s#^$HDIR##" | grep '../.\{38\}$' | tr -d '/' \
         | tee $TMP/hashes
     HASH_LIST=1
 }
 
 _list_hkeys () {
-    ls "$(_get_hdir $1)" | sort | xargs -L1
+    ls "$(_get_hdir $1)" | sort | tr '\n' '\0' | xargs -0 -n1
 }
 
 _match_hash () {
@@ -187,6 +187,7 @@ _handle_hash_key () {
 
 cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
         "$($CORE make-header command hash)" $?; exit $? ;}
+
 
 test -n "$1" && shift
 case "$cmd" in
