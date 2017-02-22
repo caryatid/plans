@@ -14,6 +14,7 @@ DATA="./data.sh -D$PDIR"
 NAME_KEY=__n_
 GROUP_KEY=__g_
 DESC_KEY=__d_
+NOTE_KEY=__t_
 STASH_KEY=__s_ 
 PROC_KEY=__p_ 
 PURSUIT_KEY=__r_
@@ -21,7 +22,7 @@ STAT_KEY=__b_
 OPEN_KEY=__o_
 KEY_M='^__._'
 
-HEADER='|-%-37.37s-|'
+HEADER='| %-37.37s |\n'
 
 CONF_HASH=$(printf '0%.0s' $(seq 40))
 echo config | $DATA ..set ..$CONF_HASH "n.$NAME_KEY" >/dev/null
@@ -68,7 +69,6 @@ _parse_plan () {
         hash=$(grep -f $TMP/children  $TMP/children_all)
         ;;
     s.)
-        test "$pattern" = '.*' && pattern=''
         _parse_plan "$pattern" >$TMP/stash_all
         $DATA ..show-set ..$CONF_HASH "n.$STASH_KEY" >$TMP/stash
         hash=$(grep -f $TMP/stash $TMP/stash_all)
@@ -137,9 +137,9 @@ _list_children () {
         test $depth -ge $max && return 0
         $DATA ..index-set ..$CONF_HASH ..$hash n.$PURSUIT_KEY >/dev/null \
             && pursuit='-'
-        echo $hash | $DATA ..append "$depth" 2 | $DATA ..append "$iout" 2 \
-            | $DATA ..append "$pursuit" 2 | $DATA ..append "$stat" 2 \
-            | $DATA ..append "$seen" 2 | $DATA ..append "$index" 3
+        echo $hash | $DATA ..append "$depth" | $DATA ..append "$iout" \
+            | $DATA ..append "$pursuit"  | $DATA ..append "$stat" \
+            | $DATA ..append "$seen"  | $DATA ..append "$index" 
         focus=$($DATA ..parse-index ..$hash "n.${PROC_KEY}" c.)
     else
         echo $hash
@@ -179,7 +179,7 @@ _tops () {
 _display_plan () {
     local hash=$1; local depth=${2:-2}
     printf "$HEADER" name
-    printf '  %s\n' $($DATA ..key ..$hash n.$NAME_KEY)
+    printf '  %s\n' "$($DATA ..key ..$hash n.$NAME_KEY)"
     printf "$HEADER" groups
     printf '  %s\n' $(_get_membership $hash)
     printf "$HEADER" procedure
@@ -213,9 +213,9 @@ _show_tree () {
     done
 }
 
-_organize () {
+_organize () { # TODO make nice
     local hash=$1; local key="$2"
-    $DATA ..key ..$hash "n.$key" | $DATA ..append "@$NAME_KEY" 88 \
+    $DATA ..key ..$hash "n.$key" | $DATA ..append "@$NAME_KEY" \
         | sed 's/[[:space:]]*|$//' >$TMP/proc
     $EDITOR $TMP/proc
     cat $TMP/proc | cut -d'|' -f1 | $DATA ..set ..$hash "n.$key" >/dev/null
@@ -299,34 +299,29 @@ open)
     _open $hash
     ;;
 status)
-    $DATA ..bool ..$OPEN "n.$STAT_KEY" "$1"
+    $DATA ..bool ..$OPEN n.$STAT_KEY "$1"
     ;;
 name)
     _handle_plan "$@"
     test -n "$1" && shift
-    _show_or_set $hash "$NAME_KEY" "$@"
+    _show_or_set $hash $NAME_KEY "$@"
     ;;
 description)
     _handle_plan "$@"
     test -n "$1" && shift
-    _show_or_set $hash "$DESC_KEY" "$@"
+    _show_or_set $hash $DESC_KEY "$@"
     ;;
-show-plan)
+note)
+    _show_or_set $OPEN $NOTE_KEY "$@" a
+    ;;
+show)
     _display_plan $OPEN "$@"
     ;;
+tree)
+    _show_tree $OPEN "$@"
+    ;;
 advance)
-    $DATA ..cursor-list ..$OPEN "n.$PROC_KEY" "$@"
-    ;;
-edit-pursuits)
-    $DATA ..edit ..$CONF_HASH n.$PURSUIT_KEY
-    ;;
-edit-goals)
-    echo not-implemented
-    # this should allow editing the full set of hashes or subsets
-    ;;
-edit-history)
-    echo not-implemented
-    # two stacks: recency and use count?
+    $DATA ..cursor-list ..$OPEN n.$PROC_KEY "$@"
     ;;
 edit-procedure)
     _organize $OPEN $PROC_KEY 
@@ -343,7 +338,7 @@ add)
     _handle_plan "$@"
     group=$($DATA ..key ..$OPEN $NAME_KEY)
     $DATA ..add-set ..$CONF_HASH ..$hash "n.$GROUP_KEY$group" >/dev/null
-    $DATA ..add-list ..$OPEN ..$hash "n.$PROC_KEY" ${3:-e.1}
+    $DATA ..add-list ..$OPEN ..$hash "n.$PROC_KEY" ${2:-e.1}
     ;;
 stash)
     hash=$($DATA ..id n.)
@@ -354,41 +349,10 @@ remove-pursuit)
     _handle_pursuit "$@"
     $DATA ..remove-ref ..$CONF_HASH n.$PURSUIT_KEY "n.$pursuit"
     ;;
-remove-goals)
-    echo not-implemented
-    # idea is to be different from delete and reversable
-    ;;
 remove)
+    # TODO handle_children
     _handle_plan "$@"
     $DATA ..remove-list ..$OPEN ..$hash "n.$PROC_KEY"
-    ;;
-show-pursuits)
-    $DATA ..show-refs $CONF_HASH n.$PURSUIT_KEY | \
-    while read pursuit
-    do
-        h=$(echo $pursuit | cut -d'|' -f1)
-        n=$(echo $pursuit | cut -d'|' -f2)
-        printf "$HEADER" $n
-        echo $h | $DATA ..append @$NAME_KEY 23
-    done
-    ;;
-show-goals)
-    $DATA ..list-hashes | $DATA ..append @$NAME_KEY 23
-    ;;
-show-history)
-    echo not-implemented
-    ;;
-show-groups)
-    _list_groups |
-    while read group
-    do
-        printf "$HEADER" $group
-        $DATA ..show-set ..$CONF_HASH "n.$GROUP_KEY$group" \
-            | $DATA ..append @$NAME_KEY
-    done    
-    ;;
-show)
-    _show_tree $OPEN 
     ;;
 show-stash)
     $DATA ..show-set ..$CONF_HASH "n.$STASH_KEY" \

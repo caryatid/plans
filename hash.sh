@@ -98,9 +98,8 @@ _match_key () {
         while read k
         do 
             hkey=$(_get_hkey $h "$k")
-            test -s "$hkey" || continue
             grep -q -v "$val_pattern" "$hkey" && continue
-            echo $h | _append "$k" 8 | _append @"$k" 23
+            echo $h | _append "$k" | _append @"$k" 
         done <$TMP/hkeys
     done 
 }
@@ -157,20 +156,19 @@ _set_key () {
 
 _append () {
     local lookup='';
-    local msg="$1"; local width=${2:-17}
+    local msg="$1";
     echo $msg | grep -q '^@' && lookup=true && msg=$(echo $msg | cut -c2-)
     while read hl
     do
-        echo "$hl" | grep -q -v '|$' && hl=$hl'|'
-        local h=$(echo $hl | cut -d'|' -f1 | xargs)
+        local h=$(echo $hl | cut -d'|' -f1)
         local m=''
         if test -n "$lookup"
         then
-            m=$(_get_key $h "$msg")
+            m=$(_get_key $h "$msg" | head -n1)
         else
-            m=$(echo -n "$msg" | tr \\n ' ')
+            m=$(echo -n "$msg" | head -n1)
         fi
-        printf '%s%-*.*s|\n' "$hl" "$width" "$width" "$m" 
+        printf '%s|%s\n' "$hl" "$m" 
     done
 }
 

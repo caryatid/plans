@@ -61,7 +61,7 @@ _parse_refname () {
         done >$TMP/rnames
         refname=$(cat $TMP/rnames)
         ;;
-    n.)
+    '')
         refname=$(_match_ref $hash "$key" "$pattern")
         if test -z "$refname"
         then
@@ -331,7 +331,7 @@ parse-refname)
     echo $refname
     ;;
 *)
+    echo  $HASH ..$cmd "$@"
     $HASH ..$cmd "$@"
 esac
 
-# 
