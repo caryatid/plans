@@ -166,7 +166,7 @@ _append () {
         then
             m=$(_get_key $h "$msg" | head -n1)
         else
-            m=$(echo -n "$msg" | head -n1)
+            m=$(echo "$msg" | head -n1)
         fi
         printf '%s|%s\n' "$hl" "$m" 
     done

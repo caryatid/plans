@@ -46,8 +46,8 @@ _parse_refname () {
     local hash=$1
     local key="$2"
     local r="$3"
-    local prefix=$(echo "$r" | cut -c-2)
-    local pattern=$(echo "$r" | cut -c3-)
+    local prefix=$(echo "$r" | cut -d'.' -f1)
+    local pattern=$(echo "$r" | cut -d'.' -f2)
     case $prefix in
     k.)
         refname=$(_match_ref $hash "$key" "$pattern")
@@ -61,7 +61,7 @@ _parse_refname () {
         done >$TMP/rnames
         refname=$(cat $TMP/rnames)
         ;;
-    '')
+    *)
         refname=$(_match_ref $hash "$key" "$pattern")
         if test -z "$refname"
         then
@@ -69,9 +69,6 @@ _parse_refname () {
             _ref_set $hash "$key" "$pattern" >/dev/null
             refname=$(_match_ref $hash "$key" "$pattern")
         fi
-        ;;
-    *)
-        refname=$(_match_ref $hash "$key" "$r")
         ;;
     esac
     refname=$(echo "$refname" | cut -d'|' -f2)
@@ -308,7 +305,7 @@ range-list)
     ;;
 at-index-list)
     _handle_hash_key_index "$@"
-    _list_index $hash $key $index
+    _list_index $hash "$key" $index
     ;;
 bool)
     _handle_hash_key "$@"
@@ -331,7 +328,6 @@ parse-refname)
     echo $refname
     ;;
 *)
-    echo  $HASH ..$cmd "$@"
     $HASH ..$cmd "$@"
 esac
 
