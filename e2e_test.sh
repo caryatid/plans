@@ -23,25 +23,24 @@ $PLAN add 'n.doc api'
 
 $PLAN tree
 $PLAN pursuit 'n.design the game' 'gurgeh'
-echo foo
 $PLAN stash ensure self move works. If self move is still around
 $PLAN note meld og gurgeh and nethack like ideas
 # appends to notes key
 $PLAN show-note  # displays notes hierarchy 
-echo bar
 
-$PLAN open g.._.  # shows all groups as trees?
+$PLAN open g. 
 $PLAN pursuit 'n.want' 'album' 
 $PLAN add 'n.determine electronics'
 $PLAN add 'n.practice fingering'.
-# $PLAN add-other 'r.^plan$' 'n.tests'
+$PLAN target-add 'r.^plan$' 'n.tests'
 # opens other, adds, returns to previous open
 $PLAN add 'n.experiment with rhythms via electronics'
-
 $PLAN goals # full on tree
 $PLAN pursuit 'n.wasd station' 'computing environment'
 $PLAN open r.^plan$
 $PLAN add 'n.move plan up and down'
 
 $PLAN pursuit 'n.package for my toolbox' 'computing environment'
-
+$PLAN add 'n.sources'
+$PLAN add 'n.Makefile'
+$PLAN goals

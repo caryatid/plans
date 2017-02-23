@@ -1,7 +1,7 @@
 #!/bin/sh
 
 
-seed=$(cat /dev/urandom | dd bs=255 count=1 2>/dev/null | tr \\0 \ )
+seed=$(dd if=/dev/urandom bs=255 count=1 2>/dev/null | tr \\0 \ )
 count=0
 CORE=./core.sh
 TMP=$(mktemp -d)

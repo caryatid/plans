@@ -329,5 +329,6 @@ parse-refname)
     ;;
 *)
     $HASH ..$cmd "$@"
+    ;;
 esac
 

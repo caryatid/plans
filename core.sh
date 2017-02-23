@@ -13,7 +13,7 @@ _return_parse () {
         return 1
         ;;
     *)
-        printf "$1"
+        printf '%s\n' "$1"
         return $len
         ;;
     esac
