@@ -15,7 +15,7 @@ _parse_list_idx () {
     local key="$2"
     local i=$3
     local max=$(_list_len $hash "$key")
-    local idx=$($HASH ..key ..$hash "n.$key.i")
+    local idx=$($HASH ..key ..$hash "$key.i")
     local prefix=$(echo "$i" | cut -c-2)
     local pattern=$(echo "$i" | cut -c3-)
     test -z "$pattern" && pattern=0
@@ -79,7 +79,7 @@ _match_ref () {
     local hash=$1; local key="$2";
     local pattern=${3:-'.*'}; local idx=2
     test -n "$4" && idx=1
-    $HASH ..key ..$hash "n.$key" | \
+    $HASH ..key ..$hash "$key" | \
     while read refline
     do
         echo $refline | cut -d'|' -f$idx | grep -q "$pattern" \
@@ -90,20 +90,20 @@ _match_ref () {
 _ref_set () {
     local hash=$1; local key="$2"; local ref="$3"; local h=$4
     test $(expr length "$h") -eq 40 || h=$(printf '0%0.0s' $(seq 40))
-    $HASH ..key ..$hash "n.$key" | grep -v "$ref" >$TMP/reftmp
+    $HASH ..key ..$hash "$key" | grep -v "$ref" >$TMP/reftmp
     echo  "$h"\|"$ref">>$TMP/reftmp
-    cat $TMP/reftmp | grep -v '^[[:space:]]*$' | $HASH ..set ..$hash "n.$key"
+    cat $TMP/reftmp | grep -v '^[[:space:]]*$' | $HASH ..set ..$hash "$key"
 }
 
 _ref_rem () {
     local hash=$1; local key="$2"; local ref="$3"
-    $HASH ..key ..$hash "n.$key" | grep -v "$ref" >$TMP/reftmp
-    cat $TMP/reftmp | $HASH ..set ..$hash "n.$key"
+    $HASH ..key ..$hash "$key" | grep -v "$ref" >$TMP/reftmp
+    cat $TMP/reftmp | $HASH ..set ..$hash "$key"
 }
         
 _set_list_find () {
     local thash=$1; local shash=$2; local name="$3"
-    local idx=$($HASH ..key ..$thash "n.$name" | grep -n $shash | cut -d':' -f1)
+    local idx=$($HASH ..key ..$thash "$name" | grep -n $shash | cut -d':' -f1)
     test -z "$idx" && return 1
     echo $idx
     return 0
@@ -113,29 +113,29 @@ _list_range () {
     local hash=$1; local name="$2"; local lower=$3; local upper=$4
     test $lower -eq 0 && lower=1
     local sed_e=$(printf '%s,%sp' $lower $upper)
-    $HASH ..key ..$hash "n.$name" | sed -n "$sed_e"
+    $HASH ..key ..$hash "$name" | sed -n "$sed_e"
 }
 
 _list_index () {
     local hash=$1; local name="$2"; local index=$3
     test $index -eq 0 && index=1
     local sed_e=$(printf '%sp' $index)
-    $HASH ..key ..$hash "n.$name" | sed -n "$sed_e"
+    $HASH ..key ..$hash "$name" | sed -n "$sed_e"
 }
 
 _list_len () {
     local hash=$1; local name="$2"
-    $HASH ..key ..$hash "n.$name" | wc -l
+    $HASH ..key ..$hash "$name" | wc -l
 }
 
 _bool_set () {
     local hash=$1; local name="$2"
     case "$3" in 
     false)
-        echo -n '' | $HASH ..set ..$hash n.$name
+        echo -n '' | $HASH ..set ..$hash $name
         ;;
     true)
-        echo true | $HASH ..set ..$hash n.$name
+        echo true | $HASH ..set ..$hash $name
         ;;
     toggle)
         if $(_bool_set $hash $name)
@@ -146,54 +146,54 @@ _bool_set () {
         fi
         ;;
     esac
-    test -n "$($HASH ..key ..$hash n.$name)" && echo true && return 0 
+    test -n "$($HASH ..key ..$hash $name)" && echo true && return 0 
     echo false
     return 1
 }
 
 _set_add () {
     local thash=$1; local shash=$2; local name="$3"
-    $HASH ..key ..$thash "n.$name" | grep -v $shash >$TMP/set
-    echo $shash $(cat $TMP/set) | tr ' ' '\n' | $HASH ..set ..$thash "n.$name"
+    $HASH ..key ..$thash "$name" | grep -v $shash >$TMP/set
+    echo $shash $(cat $TMP/set) | tr ' ' '\n' | $HASH ..set ..$thash "$name"
 }
 
 _list_insert () {
     local thash=$1; local shash=$2; local name="$3"; local idx=$4
-    $HASH ..key ..$thash "n.$name" >$TMP/list
+    $HASH ..key ..$thash "$name" >$TMP/list
     echo $(head -n$idx $TMP/list) $shash $(tail -n+$(( $idx + 1 )) $TMP/list) | tr ' ' '\n' \
-        | $HASH ..set ..$thash "n.$name"
+        | $HASH ..set ..$thash "$name"
 }
 
 _set_list_rem () {
     local thash=$1; local shash=$2; local name="$3"
-    $HASH ..key ..$thash "n.$name" >$TMP/set
-    cat $TMP/set | grep -v $shash | $HASH ..set ..$thash "n.$name"
+    $HASH ..key ..$thash "$name" >$TMP/set
+    cat $TMP/set | grep -v $shash | $HASH ..set ..$thash "$name"
 }
 
 _list_set_index () {
     local hash=$1; local name="$2"; local idx=$3
-    echo $idx | $HASH ..set ..$hash "n.$name.i" >/dev/null
+    echo $idx | $HASH ..set ..$hash "$name.i" >/dev/null
     $HASH ..key ..$hash "$name.i"
 }
 
 _exe_set_interpreter () {
     local hash=$1; local name="$2"
-    $HASH ..set ..$hash "n.$name.x"
+    $HASH ..set ..$hash "$name.x"
 }
 
 _execute () {
     local hash=$1; local name="$2"
-    local interpreter=$($HASH ..key ..$hash "n.$name.x")
+    local interpreter=$($HASH ..key ..$hash "$name.x")
     interpreter=${interpreter:-sh}
     # TODO likely need to be "smarter" here
-    $HASH ..key ..$hash "n.$name" | $interpreter
+    $HASH ..key ..$hash "$name" | $interpreter
 }
     
 _reap_souls () {
     local hash=$1; local name="$2"
     local exists=$($HASH ..list-hashes)
     _set_get $hash $name | grep -e"$exists" >$TMP/set
-    $HASH ..set ..$hash "n.$name" <$TMP/set
+    $HASH ..set ..$hash "$name" <$TMP/set
 }
 
 _handle_hash () {

@@ -24,9 +24,9 @@ $PLAN add 'n.doc api'
 $PLAN tree
 $PLAN pursuit 'n.design the game' 'gurgeh'
 $PLAN stash ensure self move works. If self move is still around
-$PLAN note meld og gurgeh and nethack like ideas
+$PLAN edit-note wow meld og gurgeh and nethack like ideas
 # appends to notes key
-$PLAN show-note  # displays notes hierarchy 
+$PLAN show-note wow  # displays notes hierarchy 
 
 $PLAN open g. 
 $PLAN pursuit 'n.want' 'album' 

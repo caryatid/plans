@@ -46,13 +46,6 @@ _parse_key () {
     local prefix=$(echo "$k" | cut -c-2)
     local pattern=$(echo "$k" | cut -c3-)
     case $prefix in
-    n.)
-        if test -n "$pattern"
-        then
-            _get_key $hash "$pattern" >/dev/null
-            key="$pattern"
-        fi
-        ;;
     m.)
         pattern=${pattern:-'.*'}
         key=$(_list_hkeys $hash | grep "$pattern")
@@ -60,6 +53,11 @@ _parse_key () {
     *)
         k=${k:-'.*'}
         key=$(_list_hkeys $hash | grep "^$k\$")
+        if test -z "$key"
+        then
+            _get_key $hash "$k" >/dev/null
+            key="$k"
+        fi
         ;;
     esac
     $CORE return-parse "$key" "$k"
@@ -225,8 +223,9 @@ parse-hash)
     echo $hash
     ;;
 parse-key)
-    _handle_hash_key "$@"
-    echo "$key"
+    _handle_hash "$1"
+    test -n "$1" && shift
+    _parse_key $hash "$@"
     ;;
 *)
     echo you are currently helpless
