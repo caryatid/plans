@@ -1,6 +1,6 @@
 TMP=$(mktemp -d)
 trap "rm -Rf $TMP" EXIT
-PLAN="./plan.sh -D$TMP/.hash"
+PLAN="./plan.sh -D$TMP/.plans"
 
 # hash
 echo end to end plan test
@@ -16,7 +16,7 @@ $PLAN open i.e.1
 $PLAN add 'n.define query language'
 $PLAN add 'n.define commands'
 $PLAN move o. i.e.1 e.2
-$PLAN open r.^plan$
+$PLAN open r.plan
 $PLAN add 'n.think about missing ideas'
 $PLAN add 'n.determine types'
 $PLAN add 'n.doc api'
@@ -32,12 +32,11 @@ $PLAN open g.
 $PLAN pursuit 'n.want' 'album' 
 $PLAN add 'n.determine electronics'
 $PLAN add 'n.practice fingering'.
-$PLAN target-add 'r.^plan$' 'n.tests'
 # opens other, adds, returns to previous open
 $PLAN add 'n.experiment with rhythms via electronics'
 $PLAN groups 
 $PLAN pursuit 'n.wasd station' 'computing environment'
-$PLAN open r.^plan$
+$PLAN open r.plan
 $PLAN add 'n.move plan up and down'
 
 $PLAN pursuit 'n.package for my toolbox' 'computing environment'

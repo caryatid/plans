@@ -8,7 +8,6 @@ HDIR=.hash
 echo "$1" | grep -q "^-D" && { HDIR=$(echo "$1" | cut -c3-); shift ;}
 test -d "$HDIR" || mkdir -p "$HDIR"
 HASH="./hash.sh -D$HDIR"
-REF_NAME_SIZE=80
 
 _parse_list_idx () {
     local hash=$1
@@ -45,46 +44,17 @@ _parse_refname () {
     local refname=''
     local hash=$1
     local key="$2"
-    local r="$3"
-    local prefix=$(echo "$r" | cut -d'.' -f1)
-    local pattern=$(echo "$r" | cut -d'.' -f2)
-    case $prefix in
-    k.)
-        refname=$(_match_ref $hash "$key" "$pattern")
-        ;;
-    v.)
-        local ids=$(_match_ref $hash "$key" | cut -d'|' -f1 | $HASH ..id f_"$pattern")
-        test $? -eq 1 && return 1
-        for h in $(echo "$ids" | cut -d'|' -f1)
-        do
-            _match_ref $hash "$key" $h
-        done >$TMP/rnames
-        refname=$(cat $TMP/rnames)
-        ;;
-    *)
-        refname=$(_match_ref $hash "$key" "$pattern")
-        if test -z "$refname"
-        then
-            pattern=$(echo -n "$pattern" | cut -c-$REF_NAME_SIZE)
-            _ref_set $hash "$key" "$pattern" >/dev/null
-            refname=$(_match_ref $hash "$key" "$pattern")
-        fi
-        ;;
-    esac
+    local pattern="$3"
+    refname=$(_match_ref $hash "$key" "$pattern")
     refname=$(echo "$refname" | cut -d'|' -f2)
+    test -z "$refname" && test -n "$3" && refname="$3"
     $CORE return-parse "$refname" "$r"
 }
 
 _match_ref () {
     local hash=$1; local key="$2";
-    local pattern=${3:-'.*'}; local idx=2
-    test -n "$4" && idx=1
-    $HASH ..key ..$hash "$key" | \
-    while read refline
-    do
-        echo $refline | cut -d'|' -f$idx | grep -q "$pattern" \
-            && echo "$refline"
-    done
+    local pattern=${3:-'.*'}
+    $HASH ..key ..$hash "$key" | grep "$pattern"
 }
 
 _ref_set () {
@@ -261,7 +231,7 @@ show-set|show-refs|show-list)
     ;;
 show-ref)
     _handle_hash_key_refname "$@"
-    _match_ref $hash "$key" "^$refname\$"
+    _match_ref $hash "$key" "$refname\$"
     ;;
 add-set)
     _handle_target_source_key "$@"
@@ -324,8 +294,7 @@ parse-index)
     echo $index
     ;;
 parse-refname)
-    _handle_hash_key_refname "$@"
-    echo $refname
+    _parse_refname $CONF_HASH $PURSUIT_KEY "$@"
     ;;
 *)
     $HASH ..$cmd "$@"
