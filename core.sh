@@ -59,7 +59,7 @@ _ask_to_init () {
 _parse_cmd () {
     local cmd=''
     local cfile=$(readlink -f "$1")
-    local cmds=$(sed -n 's/\(^[^[:space:]]\+)\)/\1/p' "$cfile" | tr -d ')')
+    local cmds=$(sed -n 's/\(^[^[:space:]]\+\)).*/\1/p' "$cfile" )
     local c=${2:-'.*'}
     local prefix=$(echo "$c" | cut -c-2)
     local pattern=$(echo "$c" | cut -c3-)

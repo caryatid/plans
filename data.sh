@@ -289,7 +289,7 @@ remove-ref)
     ;;
 index-set|index-ref|index-list)
     _handle_target_source_key "$@"
-    _set_list_find $target $source $key
+    _set_list_find $target $source "$key"
     ;;
 len-set|len-ref|len-list)
     _handle_hash_key "$@"

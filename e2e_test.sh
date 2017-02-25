@@ -35,7 +35,7 @@ $PLAN add 'n.practice fingering'.
 $PLAN target-add 'r.^plan$' 'n.tests'
 # opens other, adds, returns to previous open
 $PLAN add 'n.experiment with rhythms via electronics'
-$PLAN goals # full on tree
+$PLAN groups 
 $PLAN pursuit 'n.wasd station' 'computing environment'
 $PLAN open r.^plan$
 $PLAN add 'n.move plan up and down'
@@ -43,4 +43,4 @@ $PLAN add 'n.move plan up and down'
 $PLAN pursuit 'n.package for my toolbox' 'computing environment'
 $PLAN add 'n.sources'
 $PLAN add 'n.Makefile'
-$PLAN goals
+$PLAN overview 'computing environment'
