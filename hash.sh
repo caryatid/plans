@@ -132,7 +132,7 @@ _new_hash () {
 }
 
 _rm_hash () {
-    rm -Rf $(_get_hdir $1)
+    rm -Rf $(dirname $(_get_hdir $1))
 }
 
 _edit_key () {  

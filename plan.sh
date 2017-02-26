@@ -11,6 +11,8 @@ test -d "$PDIR" || mkdir -p "$PDIR"
 
 DATA="./data.sh -D$PDIR"
 
+SHOW_NOTES=''
+
 NAME_KEY=__n_
 GROUP_KEY=__g_
 STASH_KEY=__s_ 
@@ -103,9 +105,10 @@ _parse_group () {
 }
 
 _parse_note () {
+    local hash="$1"; shift
     local note=''
     local pattern="${1:-.*}"
-    note=$($DATA ..parse-key ..$OPEN \
+    note=$($DATA ..parse-key ..$hash \
            | grep -v "$KEY_M" | grep "$pattern")
     test -z "$note" && test -n "$1" && note="$1"
     $CORE return-parse "$note" "$1"
@@ -113,8 +116,8 @@ _parse_note () {
 
 _output_header () {
     echo $CONF_HASH | $DATA ..append "depth" | $DATA ..append "focus" \
-        | $DATA ..append "pursuit"  | $DATA ..append "stat" \
-        | $DATA ..append "seen"  | $DATA ..append "index" | $DATA ..append @$NAME_KEY
+        | $DATA ..append "pursuit"  | $DATA ..append "stat" | $DATA ..append "seen" \
+        | $DATA ..append "note"  | $DATA ..append "index" | $DATA ..append name
 }
 
 _list_groups () {
@@ -141,16 +144,18 @@ _list_children () {
     grep -q $hash $TMP/seen && seen='-'
     if test $max -ne 0 
     then
-        local iout='.'; local pursuit='.'; local stat='.'
+        local iout='.'; local pursuit='.'; local stat='.'; local note='-'
         test "$focus" -eq "$index" && iout='-'
+        _parse_note $hash >/dev/null 2>&1
+        test $? -eq 1 && note='.'
         $DATA ..bool ..$hash $STAT_KEY >/dev/null && stat='-' 
         test $depth -ge $max && return 0
         $DATA ..index-set ..$CONF_HASH ..$hash $PURSUIT_KEY >/dev/null \
             && pursuit='-'
         echo $hash | $DATA ..append "$depth" | $DATA ..append "$iout" \
             | $DATA ..append "$pursuit"  | $DATA ..append "$stat" \
-            | $DATA ..append "$seen"  | $DATA ..append "$index" \
-            | $DATA ..append @$NAME_KEY
+            | $DATA ..append "$seen" | $DATA ..append "$note" \
+            | $DATA ..append "$index" | $DATA ..append @$NAME_KEY
         focus=$($DATA ..parse-index ..$hash "${PROC_KEY}" c.)
     else
         echo $hash
@@ -193,23 +198,40 @@ _display_plan () {
 
 _show_tree () {
     local hash=$1; local max=$2; _IFS="$IFS"
+    printf '%-55.55s[%s]\n' "--" "nsf"
     _list_children $hash $max | \
     while read hline
     do
         IFS='|'
         set $hline
-        local h="$1"; local depth="$2"; local focus="$3"
-        local pursuit="$4"; local status="$5"; local seen="$6"
-        local index="$7"; local name="$8"
-        IFS="$_IFS"
-        test "$pursuit" != '.' && name="[$name]"
         local header=''
-        test $depth -ge 1 && header=$header$(printf \
-            '|--%.0s' $(seq $depth))
-        local st=$(printf '%1.1s' "$status" "$focus")
-        local cart=$(printf '%s|> (%2.2d) %s %s' "$header" $index $st "$name")
-        test "$seen" = '.' || { printf '%7.7s<%-75.75s\n' $h "$cart"; continue ;}
-        printf '%7.7s %-75.75s\n' $h "$cart"
+        local h="$1"; local depth="$2"; local focus="$3"
+        local pursuit="$4"; local status="$5"; local seen="$6";
+        local note="$7"; local index="$8"; local name="$9"
+        IFS="$_IFS"
+        test "$pursuit" != '.' && name="($name)"
+        if test "$focus" = '.'; then focus='['; else focus='>'; fi
+        if test "$status" = '.'; then stat='  |'; else stat='--|'; fi
+        test "$note" != '.' && name="$name *"
+        test $depth -ge 1 \
+            && header=$header$(printf "$stat%.0s" $(seq $depth))
+        local st=$(printf '%1.1s' "$note" "$status" "$focus" )
+        if test "$seen" = '.'; then seen=' '; else seen=']'; fi
+        local tree=$(printf '%s%1.1s %s %1.1s' "$header" "$focus" "$name" "$seen")
+        local data=$(printf '%s' $st)
+        local a=$(printf '%7.7s %2.2d %-40.40s' $h "$index" "$tree")
+        printf '%-55.55s[%s]\n' "$a" "$data"
+        if test "$note" != '.' && test -n "$SHOW_NOTES"
+        then
+            local notes=$(_parse_note $h)
+            IFS=$'\n'
+            set "$notes"
+            for e in "$*"
+            do 
+                printf '    %s\n' $e
+            done
+            IFS="$_IFS"
+        fi
     done
 }
 
@@ -236,6 +258,7 @@ _show_keys () {
     for h in $(_list_children $hash)
     do
         test '.' != $(echo "$h" | cut -d'|' -f6) && continue
+        $DATA ..parse-key ..$h | grep -q "^$key\$" || continue
         local data=$($DATA ..key ..$h "$key")
         test -z "$data" && continue
         printf "$HEADER" "$($DATA ..key ..$h $NAME_KEY)"
@@ -322,7 +345,7 @@ _handle_pursuit_group () {
 
 _handle_note () {
     local header=$($CORE make-header note "$2")
-    note=$(_parse_note "$1") \
+    note=$(_parse_note $OPEN "$1") \
         || { $CORE err-msg "$note" "$header" $?; exit 1 ;}
 }
 
@@ -436,15 +459,16 @@ move) # plan -> plan -> Null
     $DATA ..add-list ..$OPEN ..$source "$PROC_KEY" ${3:-e.1} >/dev/null
     ;;
 tops) # -> table
+    _output_header | _table
     _tops | while read h
     do
-        _list_children $h | sed "1i$(_output_header)" |  _table
+        _list_children $h | sed "1i$(_output_header)" |  _table | tail -n+2
     done
     ;;
 overview) # pursuit -> tree
     _handle_pursuit "$@"
     _show_tree $($DATA ..show-ref ..$CONF_HASH $PURSUIT_KEY "$pursuit" \
-                 | cut -d'|' -f1)
+                 | cut -d'|' -f1) $2
     ;;
 edit-note) # note -> (''|-|a|e text)|text -> text
     _handle_note "$1"; shift
@@ -452,7 +476,14 @@ edit-note) # note -> (''|-|a|e text)|text -> text
     ;;
 show-note) # note -> key-list
     _handle_note "$1"; shift
-    _show_keys $OPEN "$note" "$@"
+    $DATA ..parse-key ..$OPEN | grep -q "^$note\$" || continue
+    printf "$HEADER" "$($DATA ..key ..$OPEN $NAME_KEY)"
+    $DATA ..key ..$OPEN "$note"
+    printf '%s\n' "$data"
+    ;;
+delete-note) # note ->  Null
+    _handle_note "$1"; shift
+    $DATA ..delete-key ..$OPEN "$note"
     ;;
 archive) # [directory] -> tarball
     file=${1:-$HOME}/$(basename "$PWD")-$(date -I +%a-%d-%m-%Y).pa.tgz
@@ -463,7 +494,10 @@ help)
     echo you are currently helpless
     ;;
 parse-plan)
-    _parse_plan "_.$@"
+    _parse_plan "$@"
+    ;;
+parse-note)
+    _parse_note $OPEN "$@"; echo "$?"
     ;;
 parse-group)
     _parse_group "$@"

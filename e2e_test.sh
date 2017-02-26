@@ -6,16 +6,11 @@ PLAN="./plan.sh -D$TMP/.plans"
 echo end to end plan test
 echo --------------------
 
+
 $PLAN pursuit 'n.determine plan cli' 'plan'
-# pursuit makes new, if necessary, pursuit entry and new
-# goal, if necessary,  of the same name. 
-# then adds the $hash to the pursuit goal and opens $hash
 $PLAN add 'n.end to end'
-# adds to group and removes from stash if it is there
-$PLAN open i.e.1
-$PLAN add 'n.define query language'
-$PLAN add 'n.define commands'
-$PLAN move o. i.e.1 e.2
+$PLAN -oi.1 add 'n.define commands'
+$PLAN -oi.1 add 'n.define query language'
 $PLAN open r.plan
 $PLAN add 'n.think about missing ideas'
 $PLAN add 'n.determine types'
@@ -24,8 +19,8 @@ $PLAN add 'n.doc api'
 $PLAN tree
 $PLAN pursuit 'n.design the game' 'gurgeh'
 $PLAN stash ensure self move works. If self move is still around
-$PLAN edit-note wow meld og gurgeh and nethack like ideas
-# appends to notes key
+$PLAN edit-note ideas meld og gurgeh and nethack like ideas
+$PLAN edit-note ideas a meld og gurgeh and nethack like ideas
 $PLAN show-note wow  # displays notes hierarchy 
 
 $PLAN open g. 
