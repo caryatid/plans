@@ -365,10 +365,7 @@ name) # plan -> (''|-|a|e text)|text -> text
 plan) # -> { name, groups, procedure, status }
     _display_plan $OPEN
     ;;
-list) # [depth] -> tree
-    _list_children $OPEN "$@" 
-    ;;
-tree) # [depth] -> tree
+procs) # [depth] -> tree
     _list_children $OPEN "$@" | _show_tree 
     ;;
 advance) # [index] -> index
@@ -400,10 +397,10 @@ complete) # -> Null
     fi
     $DATA ..cursor-list ..$OPEN $PROC_KEY  >/dev/null
     ;;
-edit-procedure) # M => editor -> tree
+edit-procedure) # M => editor -> null
     _organize $OPEN $PROC_KEY 
     ;;
-edit-stash) # M => editor -> tree
+edit-stash) # M => editor -> null
     _organize $CONF_HASH $STASH_KEY
     ;;
 set-pursuit) # plan -> pursuit -> Null
@@ -452,19 +449,19 @@ show-stash) # -> table
     $DATA ..show-set ..$CONF_HASH "$STASH_KEY" \
         | $DATA ..append @$NAME_KEY 
     ;;
-move) # plan -> plan -> Null
+move) # plan -> plan -> null
      _handle_target_source "$@"
     $DATA ..remove-list ..$target ..$source "$PROC_KEY" >/dev/null
     $DATA ..add-list ..$OPEN ..$source "$PROC_KEY" ${3:-e.1} >/dev/null
     ;;
-tops) # -> table
+tops) # -> list
     _output_header
     _tops | while read h
     do
         _list_children $h "$1" 
     done
     ;;
-overview) # pursuit -> tree
+overview) # TODO 
     _handle_pursuit "$@"
     _list_children $($DATA ..show-ref ..$CONF_HASH $PURSUIT_KEY "$pursuit" \
                      | cut -d'|' -f1) $2 | _show_tree
@@ -477,9 +474,6 @@ archive) # [directory] -> tarball
     file=${1:-$HOME}/$(basename "$PWD")-$(date -I +%a-%d-%m-%Y).pa.tgz
     cd "$PDIR"
     tar -czf "$file" .
-    ;;
-help)
-    echo you are currently helpless
     ;;
 parse-plan)
     _parse_plan "$@"
@@ -496,18 +490,20 @@ append)
 header)
     printf "$HEADER" "$*"
     ;;
-table)
-    _table
+list) 
+    _list_children $OPEN "$@" 
     ;;
 sort)
     _sort "$@"
     ;;
-l2tree)
+table)
+    _table
+    ;;
+tree)
     grep -v ^$CONF_HASH | _show_tree
     ;;
-xx)
-    _output_header
-    _list_children $OPEN 
+help)
+    echo you are currently helpless
     ;;
 *)
     test "$cmd" = "all" && cmd=''
