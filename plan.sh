@@ -192,15 +192,14 @@ _display_plan () {
     $DATA ..key ..$hash $PROC_KEY | \
     while read child
     do
-        _show_tree $child
+        _list_children $child $depth |  _show_tree 
     done
     printf "$HEADER" status
     $DATA ..bool ..$hash "$STAT_KEY"
 }
 
 _show_tree () {
-    local hash=$1; local max=$2; _IFS="$IFS"
-    _list_children $hash $max | \
+    _IFS="$IFS"
     while read hline
     do
         IFS='|'
@@ -218,7 +217,7 @@ _show_tree () {
         test "$note" != '.' && name="$name (n)"
         test $depth -ge 1 \
             && header=$header$(printf "|$s%.0s" $(seq $depth))
-        local buf=$(printf ".%.0s" $(seq 40))
+        local buf=$(printf ".%.0s" $(seq 80))
         local tree=$(printf '%s%1.1s %s' "$header" "$fl" "$name")
         local l=$(printf '%7.7s %2.2d %s %1.1s%s' $h "$index" "$tree" "$fr" "$buf")
         printf "%-${HBAR}.${HBAR}s%1.1s\n" "$l" "]" 
@@ -235,11 +234,6 @@ _organize () {
         h=$(echo $l | cut -d'|' -f1)
         echo $l | cut -d'|' -f2 | xargs | $DATA ..set ..$h "$NAME_KEY" >/dev/null
     done <$TMP/proc
-    $DATA ..show-set ..$hash "$key" | \
-    while read h
-    do
-        _show_tree $h
-    done
 }    
 
 _show_keys () {
@@ -372,7 +366,7 @@ plan) # -> { name, groups, procedure, status }
     _display_plan $OPEN
     ;;
 tree) # [depth] -> tree
-    _show_tree $OPEN "$@"
+    _list_children $OPEN "$@" | _show_tree 
     ;;
 advance) # [index] -> index
     $DATA ..cursor-list ..$OPEN $PROC_KEY "$@"
@@ -431,11 +425,11 @@ add) # plan -> Null
     $DATA ..add-list ..$OPEN ..$hash "$PROC_KEY" ${2:-e.1} >/dev/null
     ;;
 groups) # -> group -> tree
-    _handle_group "$@"
+    _handle_group "$@"; shift
     printf "$HEADER"  "$group"
     for h in $($DATA ..show-list ..$CONF_HASH "$GROUP_KEY$group")
     do
-        _show_tree $h
+        _list_children $h "$@" | _show_tree
     done
     ;;
 stash) # [text] -> Null
@@ -469,8 +463,8 @@ tops) # -> table
     ;;
 overview) # pursuit -> tree
     _handle_pursuit "$@"
-    _show_tree $($DATA ..show-ref ..$CONF_HASH $PURSUIT_KEY "$pursuit" \
-                 | cut -d'|' -f1) $2
+    _list_children $($DATA ..show-ref ..$CONF_HASH $PURSUIT_KEY "$pursuit" \
+                     | cut -d'|' -f1) $2 | _show_tree
     ;;
 delete-note) # note ->  Null
     _handle_note "$1"; shift
@@ -504,6 +498,9 @@ table)
     ;;
 sort)
     _sort "$@"
+    ;;
+l2tree)
+    _show_tree
     ;;
 xx)
     _output_header
