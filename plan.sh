@@ -161,10 +161,10 @@ _list_children () {
         | $DATA ..append "$pursuit"  | $DATA ..append "$stat" \
         | $DATA ..append "$seen" | $DATA ..append "$note" \
         | $DATA ..append "$index" | $DATA ..append @$NAME_KEY
-    focus=$($DATA ..parse-index ..$hash "${PROC_KEY}" c.)
-    index=1
     test "$seen" != '.' && return 0
     echo $hash >>$TMP/seen
+    focus=$($DATA ..parse-index ..$hash "${PROC_KEY}" c.)
+    index=1
     for h in $($DATA ..key ..$hash "$PROC_KEY\$")
     do
         _list_children $h $max "$(( $depth + 1 ))" "$index" "$focus"
@@ -365,6 +365,9 @@ name) # plan -> (''|-|a|e text)|text -> text
 plan) # -> { name, groups, procedure, status }
     _display_plan $OPEN
     ;;
+list) # [depth] -> tree
+    _list_children $OPEN "$@" 
+    ;;
 tree) # [depth] -> tree
     _list_children $OPEN "$@" | _show_tree 
     ;;
@@ -458,7 +461,7 @@ tops) # -> table
     _output_header
     _tops | while read h
     do
-        _list_children $h "$1" | sed "1i$(_output_header)" | tail -n+2
+        _list_children $h "$1" 
     done
     ;;
 overview) # pursuit -> tree
@@ -500,7 +503,7 @@ sort)
     _sort "$@"
     ;;
 l2tree)
-    _show_tree
+    grep -v ^$CONF_HASH | _show_tree
     ;;
 xx)
     _output_header
