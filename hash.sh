@@ -42,24 +42,14 @@ _parse_key () {
     local key=''
     test -z "$1" && return 1
     local hash=$1
-    local k="$2"
-    local prefix=$(echo "$k" | cut -c-2)
-    local pattern=$(echo "$k" | cut -c3-)
-    case $prefix in
-    m.)
-        pattern=${pattern:-'.*'}
-        key=$(_list_hkeys $hash | grep "$pattern")
-        ;;
-    *)
-        k=${k:-'.*'}
-        key=$(_list_hkeys $hash | grep "^$k\$")
-        if test -z "$key"
-        then
-            _get_key $hash "$k" >/dev/null
-            key="$k"
-        fi
-        ;;
-    esac
+    k=${2:-'.*'}
+    key=$(_list_hkeys $hash | grep "^$k\$")
+    test -z "$key" && key=$(_list_hkeys $hash | grep "$k")
+    if test -z "$key" && test -n "$2"
+    then
+        _get_key $hash "$k" >/dev/null
+        key="$k"
+    fi
     $CORE return-parse "$key" "$k"
 }
 
@@ -92,7 +82,7 @@ _match_key () {
     val_pattern=${2:-'.*'}
     for h in $(_list_hashes)
     do
-        _list_hkeys $h | grep "^${key_pattern}\$" >$TMP/hkeys
+        _list_hkeys $h | grep "${key_pattern}" >$TMP/hkeys
         while read k
         do 
             hkey=$(_get_hkey $h "$k")

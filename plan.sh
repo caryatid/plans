@@ -21,8 +21,9 @@ PURSUIT_KEY=__r_
 STAT_KEY=__b_
 OPEN_KEY=__o_
 KEY_M='^__._'
+HBAR=50
 
-HEADER=$(printf '%s| %%23.23s |\\n' $(printf '-%.0s' $(seq 40)))
+HEADER=$(printf '%s| %%27.27s |\\n' $(printf '-%.0s' $(seq $HBAR)))
 CONF_HASH=$(printf '0%.0s' $(seq 40))
 echo config | $DATA ..set ..$CONF_HASH "$NAME_KEY" >/dev/null
 OPEN=$($DATA ..show-ref ..$CONF_HASH $PURSUIT_KEY $OPEN_KEY \
@@ -55,8 +56,13 @@ _parse_plan () {
     p.)
         _parse_plan "$pattern" >$TMP/parents_all
         _get_parents $OPEN >$TMP/parents
-        hash=$(grep -f $TMP/parents  $TMP/parents_all \
-               | $DATA ..append @$NAME_KEY)
+        if test -s $TMP/parents
+        then
+            hash=$(grep -f $TMP/parents  $TMP/parents_all \
+                   | $DATA ..append @$NAME_KEY)
+        else
+            hash=''
+        fi
         ;;
     t.)
         _parse_plan "$pattern" >$TMP/tops_all
@@ -127,9 +133,10 @@ _list_groups () {
 
 _get_parents () {
     local hash=$1
-    for h in $($DATA ..list-hashes)
+    local _h=''
+    for _h in $($DATA ..list-hashes)
     do
-        $DATA ..show-set ..$h "$PROC_KEY" | grep -q $hash && echo $h 
+        $DATA ..show-set ..$_h "$PROC_KEY" | grep -q $hash && echo $_h 
     done
 }
 
@@ -142,28 +149,23 @@ _list_children () {
     test -f $TMP/seen || touch $TMP/seen
     local seen='.'
     grep -q $hash $TMP/seen && seen='-'
-    if test $max -ne 0 
-    then
-        local iout='.'; local pursuit='.'; local stat='.'; local note='-'
-        test "$focus" -eq "$index" && iout='-'
-        _parse_note $hash >/dev/null 2>&1
-        test $? -eq 1 && note='.'
-        $DATA ..bool ..$hash $STAT_KEY >/dev/null && stat='-' 
-        test $depth -ge $max && return 0
-        $DATA ..index-set ..$CONF_HASH ..$hash $PURSUIT_KEY >/dev/null \
-            && pursuit='-'
-        echo $hash | $DATA ..append "$depth" | $DATA ..append "$iout" \
-            | $DATA ..append "$pursuit"  | $DATA ..append "$stat" \
-            | $DATA ..append "$seen" | $DATA ..append "$note" \
-            | $DATA ..append "$index" | $DATA ..append @$NAME_KEY
-        focus=$($DATA ..parse-index ..$hash "${PROC_KEY}" c.)
-    else
-        echo $hash
-    fi
+    local iout='.'; local pursuit='.'; local stat='.'; local note='.'
+    test "$focus" -eq "$index" && iout='-'
+    _parse_note $hash >/dev/null 2>&1
+    test $? -ne 1 && note='-'
+    $DATA ..bool ..$hash $STAT_KEY >/dev/null && stat='-' 
+    test $depth -ge $max && return 0
+    $DATA ..index-set ..$CONF_HASH ..$hash $PURSUIT_KEY >/dev/null \
+        && pursuit='-'
+    echo $hash | $DATA ..append "$depth" | $DATA ..append "$iout" \
+        | $DATA ..append "$pursuit"  | $DATA ..append "$stat" \
+        | $DATA ..append "$seen" | $DATA ..append "$note" \
+        | $DATA ..append "$index" | $DATA ..append @$NAME_KEY
+    focus=$($DATA ..parse-index ..$hash "${PROC_KEY}" c.)
     index=1
     test "$seen" != '.' && return 0
     echo $hash >>$TMP/seen
-    for h in $($DATA ..key ..$hash "$PROC_KEY")
+    for h in $($DATA ..key ..$hash "$PROC_KEY\$")
     do
         _list_children $h $max "$(( $depth + 1 ))" "$index" "$focus"
         index=$(( $index + 1 ))
@@ -198,7 +200,6 @@ _display_plan () {
 
 _show_tree () {
     local hash=$1; local max=$2; _IFS="$IFS"
-    printf '%-55.55s[%s]\n' "--" "nsf"
     _list_children $hash $max | \
     while read hline
     do
@@ -208,30 +209,19 @@ _show_tree () {
         local h="$1"; local depth="$2"; local focus="$3"
         local pursuit="$4"; local status="$5"; local seen="$6";
         local note="$7"; local index="$8"; local name="$9"
+        local s='...'; local fl='['; local fr=']'
         IFS="$_IFS"
         test "$pursuit" != '.' && name="($name)"
-        if test "$focus" = '.'; then focus='['; else focus='>'; fi
-        if test "$status" = '.'; then stat='  |'; else stat='--|'; fi
-        test "$note" != '.' && name="$name *"
+        test "$focus" != '.' && { fl='<'; fr='>' ;}
+        test "$status" != '.' && s='---'
+        test "$seen" != '.' && name="$name (.)"
+        test "$note" != '.' && name="$name (n)"
         test $depth -ge 1 \
-            && header=$header$(printf "$stat%.0s" $(seq $depth))
-        local st=$(printf '%1.1s' "$note" "$status" "$focus" )
-        if test "$seen" = '.'; then seen=' '; else seen=']'; fi
-        local tree=$(printf '%s%1.1s %s %1.1s' "$header" "$focus" "$name" "$seen")
-        local data=$(printf '%s' $st)
-        local a=$(printf '%7.7s %2.2d %-40.40s' $h "$index" "$tree")
-        printf '%-55.55s[%s]\n' "$a" "$data"
-        if test "$note" != '.' && test -n "$SHOW_NOTES"
-        then
-            local notes=$(_parse_note $h)
-            IFS=$'\n'
-            set "$notes"
-            for e in "$*"
-            do 
-                printf '    %s\n' $e
-            done
-            IFS="$_IFS"
-        fi
+            && header=$header$(printf "|$s%.0s" $(seq $depth))
+        local buf=$(printf ".%.0s" $(seq 40))
+        local tree=$(printf '%s%1.1s %s' "$header" "$fl" "$name")
+        local l=$(printf '%7.7s %2.2d %s %1.1s%s' $h "$index" "$tree" "$fr" "$buf")
+        printf "%-${HBAR}.${HBAR}s%1.1s\n" "$l" "]" 
     done
 }
 
@@ -387,7 +377,11 @@ tree) # [depth] -> tree
 advance) # [index] -> index
     $DATA ..cursor-list ..$OPEN $PROC_KEY "$@"
     ;;
-delete) # plan -> Null
+delete-group) # group -> null
+    _handle_group "$@"
+    $DATA ..delete-key ..$CONF_HASH "$GROUP_KEY$group"
+    ;;
+delete-plan) # plan -> Null
     _handle_plan "$@"
     for h in $($DATA ..list-hashes)
     do
@@ -402,8 +396,11 @@ delete) # plan -> Null
     $DATA ..delete $hash >/dev/null
     ;;
 complete) # -> Null
-    h=$($DATA ..at-index-list ..$OPEN $PROC_KEY c.)
-    $DATA ..bool ..$h $STAT_KEY true >/dev/null
+    if test 0 -ne $($DATA ..parse-index ..$OPEN $PROC_KEY c.)
+    then
+        h=$($DATA ..at-index-list ..$OPEN $PROC_KEY c.)
+        $DATA ..bool ..$h $STAT_KEY true >/dev/null
+    fi
     $DATA ..cursor-list ..$OPEN $PROC_KEY  >/dev/null
     ;;
 edit-procedure) # M => editor -> tree
@@ -412,6 +409,10 @@ edit-procedure) # M => editor -> tree
 edit-stash) # M => editor -> tree
     _organize $CONF_HASH $STASH_KEY
     ;;
+set-pursuit) # plan -> pursuit -> Null
+    _handle_plan_pursuit "$@"
+    $DATA ..add-ref ..$CONF_HASH ..$hash "$PURSUIT_KEY" "$pursuit" >/dev/null
+;;
 pursuit) # plan -> pursuit -> Null
     _handle_plan_pursuit "$@"
     _open $hash >/dev/null
@@ -419,7 +420,8 @@ pursuit) # plan -> pursuit -> Null
     test "$?" -eq 1 && pursuit_hash=$(_parse_plan "n.$pursuit")
     $DATA ..add-ref ..$CONF_HASH ..$pursuit_hash "$PURSUIT_KEY" "$pursuit" >/dev/null
     $DATA ..add-set ..$CONF_HASH ..$hash "$GROUP_KEY$pursuit" >/dev/null
-    $DATA ..add-list ..$pursuit_hash ..$hash $PROC_KEY  >/dev/null
+    $DATA ..index-list ..$pursuit_hash ..$hash $PROC_KEY >/dev/null \
+        || $DATA ..add-list ..$pursuit_hash ..$hash $PROC_KEY  >/dev/null
     ;;
 add) # plan -> Null
     _handle_plan "$@"
@@ -451,7 +453,7 @@ remove) # plan -> Null
     ;;
 show-stash) # -> table 
     $DATA ..show-set ..$CONF_HASH "$STASH_KEY" \
-        | $DATA ..append @$NAME_KEY | _table
+        | $DATA ..append @$NAME_KEY 
     ;;
 move) # plan -> plan -> Null
      _handle_target_source "$@"
@@ -459,27 +461,16 @@ move) # plan -> plan -> Null
     $DATA ..add-list ..$OPEN ..$source "$PROC_KEY" ${3:-e.1} >/dev/null
     ;;
 tops) # -> table
-    _output_header | _table
+    _output_header
     _tops | while read h
     do
-        _list_children $h | sed "1i$(_output_header)" |  _table | tail -n+2
+        _list_children $h "$1" | sed "1i$(_output_header)" | tail -n+2
     done
     ;;
 overview) # pursuit -> tree
     _handle_pursuit "$@"
     _show_tree $($DATA ..show-ref ..$CONF_HASH $PURSUIT_KEY "$pursuit" \
                  | cut -d'|' -f1) $2
-    ;;
-edit-note) # note -> (''|-|a|e text)|text -> text
-    _handle_note "$1"; shift
-    _show_or_set $OPEN "$note" "$@" 
-    ;;
-show-note) # note -> key-list
-    _handle_note "$1"; shift
-    $DATA ..parse-key ..$OPEN | grep -q "^$note\$" || continue
-    printf "$HEADER" "$($DATA ..key ..$OPEN $NAME_KEY)"
-    $DATA ..key ..$OPEN "$note"
-    printf '%s\n' "$data"
     ;;
 delete-note) # note ->  Null
     _handle_note "$1"; shift
@@ -505,6 +496,9 @@ parse-group)
 append)
     $DATA ..append "$@"
     ;;
+header)
+    printf "$HEADER" "$*"
+    ;;
 table)
     _table
     ;;
@@ -516,9 +510,8 @@ xx)
     _list_children $OPEN 
     ;;
 *)
-    _handle_plan "$@"
-    test -n "$1" && shift
-    $DATA .."$cmd" $hash "$@"
-    ;;
+    test "$cmd" = "all" && cmd=''
+    _handle_note "$cmd"
+    _show_or_set $OPEN "$note" "$@" 
 esac
 
