@@ -20,7 +20,8 @@ STAT_KEY=__b_
 OPEN_REF=__o_
 KEY_M='^__._'
 
-MARK='-'
+MARK='+'
+UNMARK='.'
 HBAR=57
 HEADER=$(printf '%s| %%23.23s |\\n' $(printf '-%.0s' $(seq $HBAR)))
 CONF_HASH=$(printf '0%.0s' $(seq 40))
@@ -154,7 +155,6 @@ _parse_plan () {
     $CORE return-parse "$hash" "$h" 
 }
 
-
 _parse_note () {
     local hash="$1"; shift
     local note=''
@@ -174,8 +174,8 @@ _output_header () {
 
 _data () {
     local hash=$1; local parent=$2;
-    local seen='.'; local stat='.'; local note='.'; local focus=0;
-    local idx=0; local cursor='.'; local pursuit=''; local open=''
+    local seen=$UNMARK; local stat=$UNMARK; local note=$UNMARK; local focus=0;
+    local idx=0; local cursor=$UNMARK; local pursuit=''; local open=''
     test -n "$parent" && idx=$($DATA ..index-list ..$parent ..$hash $PROC_KEY)
     test -n "$parent" && focus=$($DATA ..parse-index ..$parent $PROC_KEY c.)
     test "$focus" -eq "$idx" && cursor="$MARK"
@@ -193,7 +193,7 @@ _data () {
         | $DATA ..append "$stat" | $DATA ..append "$seen" \
         | $DATA ..append "$note" | $DATA ..append "$pursuit" \
         | $DATA ..append "$open"
-    test "$seen" != '.' && return 1
+    test "$seen" != "$UNMARK" && return 1
     echo $hash >>$TMP/seen
 }
 
@@ -201,9 +201,12 @@ _list_children () {
     local hash=$1
     local max=${2:-999}
     local depth=${3:-0}
-    local parent=$4
+    local parent=$4; local d=''
     test $depth -ge $max && return 0
-    _data $hash $parent | $DATA ..append $depth || return 0
+    d=$(_data $hash $parent) 
+    local ret=$?
+    echo "$d" | $DATA ..append $depth 
+    test 0 -ne $ret && return 0
     for h in $($DATA ..show-list $hash $PROC_KEY)
     do
         _list_children $h $max "$(( $depth + 1 ))" $hash
@@ -253,21 +256,15 @@ _show_tree () {
         local h="$1"; local index="$2"; local cursor="$3"
         local status="$4"; local seen="$5"; local note="$6";
         local pursuit="$7"; local open="$8"; local depth="$9"
-        local s='...'; local fl='['; local fr=']'
         IFS="$_IFS"
         local name=$($DATA ..key ..$h $NAME_KEY)
-        test -n "$pursuit" && name="($name)"
-        test -n "$open" && name="(.$name.)"
-        test "$cursor" != '.' && { fl='<'; fr='>' ;}
-        test "$status" != '.' && s='---'
-        test "$seen" != '.' && name="$name (.)"
-        test "$note" != '.' && name="$name (n)"
+        local statline=$(printf ' [%c: %s' i "$index" c "$cursor" s "$status" \
+            e "$seen" n "$note")
         test $depth -ge 1 \
-            && header=$header$(printf "|$s%.0s" $(seq $depth))
-        local buf=$(printf ".%.0s" $(seq 80))
+            && header=$header$(printf "|..%.0s" $(seq $depth))
         local tree=$(printf '%s%1.1s %s' "$header" "$fl" "$name")
-        local l=$(printf '%7.7s %2.2d %s %1.1s%s' $h "$index" "$tree" "$fr" "$buf")
-        printf "%-${HBAR}.${HBAR}s%1.1s\n" "$l" "]" 
+        local l=$(printf '%7.7s %2.2d %s' $h "$index" "$tree")
+        printf "%-${HBAR}.${HBAR}s%s%1.1s\n" "$l" "$statline" "]" 
     done
 }
 
