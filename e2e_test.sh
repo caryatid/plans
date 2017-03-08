@@ -104,26 +104,14 @@ do
     $PLAN name "s._.$s"
 done
 
-#  g. # plan
-$PLAN header "groups"
-$PLAN name g. | cut -d'|' -f2- \
-| while read g
-do
-    gr=$(echo "$g" | cut -d'|' -f1)
-    n=$(echo "$g" | cut -d'|' -f2)
-    nm=$($PLAN name "g.$gr._.$n")
-    printf '%s: %s\n' "$gr" "$nm"
-done | sort
-
-
-# group
-#  *  # regex; not null; no creation
+#  g. # group 
 $PLAN header "group match"
-$PLAN groups \
-| while read gm
-do
-    $PLAN groups "$gm"
-done 
+$PLAN name 'g.' \
+| while read n
+do  # cannot match beginning '^' b/c ref match is against <hash>|<refname>
+    $PLAN name "g.$n\$"
+done
+
 
 # note
 #  *  # regex; not null; creation
@@ -174,11 +162,11 @@ $PLAN header "tree advance complete"
 $PLAN '-or.plan tests' open c._.query
 $PLAN advance
 $PLAN advance s.3
-$PLAN tree
+$PLAN list | $PLAN tree
 $PLAN advance c.1
-$PLAN tree
+$PLAN list | $PLAN tree
 $PLAN complete
-$PLAN tree
+$PLAN list | $PLAN tree
 
 # show-stash
 $PLAN header "stash"
@@ -187,8 +175,8 @@ $PLAN show-stash | $PLAN table
 # tops
 # table
 # sort
-$PLAN tops 1 | $PLAN sort 9 | $PLAN table
-$PLAN tops 2 | $PLAN sort 2 | $PLAN table
+$PLAN tops 1 | grep -v ^00000 | $PLAN sort 9 | $PLAN table
+$PLAN tops 2 | grep -v ^00000 | $PLAN sort 2 | $PLAN table
 
 
 # remove-pursuit

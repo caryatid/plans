@@ -209,8 +209,7 @@ key)
     _get_key $hash "$key"
     ;;
 parse-hash)
-    _handle_hash "$1"
-    echo $hash
+    _parse_hash "$@"
     ;;
 parse-key)
     _handle_hash "$1"

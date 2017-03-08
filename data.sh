@@ -44,17 +44,29 @@ _parse_refname () {
     local refname=''
     local hash=$1
     local key="$2"
-    local pattern="$3"
-    refname=$(_match_ref $hash "$key" "$pattern")
-    refname=$(echo "$refname" | cut -d'|' -f2)
+    local pattern="${3:-.*}"
+    local switch=""
+    echo "$pattern" | grep -q '^v\.' && { switch=1; pattern="${pattern#??}" ;}
+    refname=$(_match_ref $hash "$key" "$pattern" "$switch")
     test -z "$refname" && test -n "$3" && refname="$3"
     $CORE return-parse "$refname" "$r"
 }
 
 _match_ref () {
-    local hash=$1; local key="$2";
-    local pattern=${3:-'.*'}
-    $HASH ..key ..$hash "$key" | grep "$pattern"
+    local hash=$1; local key="$2"; local pattern=$3
+    local switch=$4
+    $HASH ..key ..$hash "$key" | while read rf
+    do
+        local hash=$(echo "$rf" | cut -d'|' -f1)
+        local ref=$(echo "$rf" | cut -d'|' -f2)
+        if test -z "$switch"
+        then
+            echo "$ref" | grep -q "$pattern" && echo "$ref|$hash"
+        else
+            echo $hash | grep -q "$pattern" && echo "$ref|$hash"
+        fi
+    done
+    return 0
 }
 
 _ref_set () {
@@ -75,7 +87,7 @@ _set_list_find () {
     local thash=$1; local shash=$2; local name="$3"
     local idx=$($HASH ..key ..$thash "$name" | grep -n $shash | cut -d':' -f1)
     test -z "$idx" && return 1
-    echo $idx
+    echo "$idx"
     return 0
 } 
     
@@ -168,13 +180,13 @@ _reap_souls () {
 
 _handle_hash () {
     local header=$($CORE make-header hash "$2")
-    hash=$($HASH ..parse-hash "$1") || { $CORE err-msg "$hash" "$header" $?; exit 1 ;}
+    hash=$($HASH ..parse-hash "$1") || { $CORE err-msg "$hash" "$header" $?; exit $? ;}
 }
 
 _handle_hash_key () {
     _handle_hash "$1" "$3"
     local header=$($CORE make-header key "$3")
-    key=$($HASH ..parse-key ..$hash "$2") || { $CORE err-msg "$key" "$header" $?; exit 1 ;}
+    key=$($HASH ..parse-key ..$hash "$2") || { $CORE err-msg "$key" "$header" $?; exit $? ;}
 }
 
 _handle_target_source_key () {  
@@ -188,7 +200,7 @@ _handle_hash_key_index () {
     _handle_hash_key $hash "$2" "$4"
     local header=$($CORE make-header index "$4")
     index=$(_parse_list_idx $hash "$key" "$3") || \
-            { $CORE err-msg "$index" "$header" $?; exit 1 ;}
+            { $CORE err-msg "$index" "$header" $?; exit $? ;}
 }
 
 _handle_hash_key_lower_upper () {
@@ -210,7 +222,7 @@ _handle_hash_key_refname () {
     _handle_hash_key $hash "$2" "$4"
     local header=$($CORE make-header refname "$4")
     refname=$(_parse_refname $hash "$key" "$3") || \
-              { $CORE err-msg "$refname" "$header" $?; exit 1 ;}
+              { $CORE err-msg "$refname" "$header" $?; exit $? ;}
 }
 
 _handle_target_source_key_refname () {  
@@ -294,7 +306,8 @@ parse-index)
     echo $index
     ;;
 parse-refname)
-    _parse_refname $CONF_HASH $PURSUIT_KEY "$@"
+    _handle_hash_key "$@"; shift; shift
+    _parse_refname $hash $key "$@"
     ;;
 *)
     $HASH ..$cmd "$@"
