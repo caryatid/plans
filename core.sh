@@ -19,41 +19,12 @@ _return_parse () {
     esac
 }
 
-
-_get_plan_dir () {
-    p_dir="$PWD"
-    while test "$p_dir" != ""
-    do
-        test -d "$p_dir/.plans" && break || p_dir=${p_dir%/*}
-    done
-    test -d "$p_dir" || return 1
-    echo "$p_dir/.plans"
-}
-
-_init_plan_dir () {
-    test -e ".plans" && { echo .plans already exists; return 1 ;}
-    mkdir -p ".plans/.hash"  
-    mkdir -p ".plans/refs"  
-    touch ".plans/history"
-}
-
 _error () {
     local header=$(echo "$2" | tr '\n' '\0' | xargs -0 -n1)
     local msg="$1"
     test -t 1 && test -n "$header" && printf "%s\n" "$header"
     test -n "$msg" && printf "%s\n" "$msg"
     return ${3:-0}
-}
-
-_ask_to_init () {
-    if test -t 1
-    then
-        printf 'There is no plans directory here or in parent directories\n'
-        printf 'Make one in the current directory?\n    (%s)\ny/n: ' "$PWD/.plans"
-        read answer
-        echo "$answer" | grep -qi '^y' && _init_plan_dir && return 0
-    fi
-    return 1
 }
 
 _parse_cmd () {
@@ -80,13 +51,6 @@ case "$cmd" in
 return-parse)
     _return_parse "$1" "$2"
     ;;
-plan-dir)
-    _get_plan_dir || _ask_to_init
-    ;;
-hash-dir)
-    _get_plan_dir >/dev/null || { _ask_to_init; exit 1 ;}
-    echo $(_get_plan_dir)/.hash
-    ;;
 parse-cmd)
     _parse_cmd "$@"
     ;;
@@ -95,8 +59,5 @@ make-header)
     ;;
 err-msg)
     _error "$@" 
-    ;;
-init)
-    _init_plan_dir
     ;;
 esac

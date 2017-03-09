@@ -74,13 +74,13 @@ _ref_set () {
     test $(expr length "$h") -eq 40 || h=$(printf '0%0.0s' $(seq 40))
     $HASH ..key ..$hash "$key" | grep -v "$ref" >$TMP/reftmp
     echo  "$h"\|"$ref">>$TMP/reftmp
-    cat $TMP/reftmp | grep -v '^[[:space:]]*$' | $HASH ..set ..$hash "$key"
+    <$TMP/reftmp grep -v '^[[:space:]]*$' | $HASH ..set ..$hash "$key"
 }
 
 _ref_rem () {
     local hash=$1; local key="$2"; local ref="$3"
     $HASH ..key ..$hash "$key" | grep -v "$ref" >$TMP/reftmp
-    cat $TMP/reftmp | $HASH ..set ..$hash "$key"
+    <$TMP/reftmp $HASH ..set ..$hash "$key"
 }
         
 _set_list_find () {
@@ -149,7 +149,7 @@ _list_insert () {
 _set_list_rem () {
     local thash=$1; local shash=$2; local name="$3"
     $HASH ..key ..$thash "$name" >$TMP/set
-    cat $TMP/set | grep -v $shash | $HASH ..set ..$thash "$name"
+    <$TMP/set grep -v $shash | $HASH ..set ..$thash "$name"
 }
 
 _list_set_index () {
@@ -163,12 +163,11 @@ _exe_set_interpreter () {
     $HASH ..set ..$hash "$name.x"
 }
 
-_execute () {
-    local hash=$1; local name="$2"
+_execute () { local hash=$1; local name="$2"; shift; shift
     local interpreter=$($HASH ..key ..$hash "$name.x")
-    interpreter=${interpreter:-sh}
+    interpreter="${interpreter:-sh -s -}"
     # TODO likely need to be "smarter" here
-    $HASH ..key ..$hash "$name" | $interpreter
+    $HASH ..key ..$hash "$name" | $interpreter "$@"
 }
     
 _reap_souls () {
@@ -269,7 +268,7 @@ remove-ref)
     _handle_hash_key_refname "$@"
     _ref_rem $hash "$key" "$refname"
     ;;
-index-set|index-ref|index-list)
+index-list)
     _handle_target_source_key "$@"
     _set_list_find $target $source "$key"
     ;;
@@ -294,8 +293,8 @@ bool)
     _bool_set $hash $key "$3"
     ;;
 execute)
-    _handle_hash_key "$@"
-    _execute $hash $key
+    _handle_hash_key "$@"; shift; shift
+    _execute $hash $key "$@"
     ;;
 set-interpreter)
     _handle_hash_key "$@"

@@ -22,7 +22,7 @@ KEY_M='^__._'
 
 MARK='+'
 UNMARK='.'
-HBAR=57
+HBAR=54
 HEADER=$(printf '%s| %%23.23s |\\n' $(printf '-%.0s' $(seq $HBAR)))
 CONF_HASH=$(printf '0%.0s' $(seq 40))
 echo config | $DATA ..set ..$CONF_HASH "$NAME_KEY" >/dev/null
@@ -257,14 +257,19 @@ _show_tree () {
         local status="$4"; local seen="$5"; local note="$6";
         local pursuit="$7"; local open="$8"; local depth="$9"
         IFS="$_IFS"
+        { test -z "$pursuit" && pursuit="$UNMARK" ;} || pursuit="$MARK"
+        { test -z "$open" && open="$UNMARK" ;} || open="$MARK"
         local name=$($DATA ..key ..$h $NAME_KEY)
-        local statline=$(printf ' [%c: %s' i "$index" c "$cursor" s "$status" \
-            e "$seen" n "$note")
+        test "$seen" = "$MARK" && name="]$name["
+        test "$cursor" = "$MARK" && name="[$name]"
+        local statline=$(printf '%c[%s]' s "$status" \
+            n "$note" p "$pursuit" o "$open")
+        statline="( $statline )"
         test $depth -ge 1 \
-            && header=$header$(printf "|..%.0s" $(seq $depth))
-        local tree=$(printf '%s%1.1s %s' "$header" "$fl" "$name")
+            && header=$header$(printf "\__%.0s" $(seq $depth))
+        local tree=$(printf '%s %s' "$header" "$name")
         local l=$(printf '%7.7s %2.2d %s' $h "$index" "$tree")
-        printf "%-${HBAR}.${HBAR}s%s%1.1s\n" "$l" "$statline" "]" 
+        printf "%-${HBAR}.${HBAR}s]%s\n" "$l" "$statline"
     done
 }
 
@@ -284,10 +289,7 @@ _show_or_set () {
     local hash="$1"; shift
     local key="$1"; shift
     case "$1" in
-    '') 
-        $DATA ..key ..$hash "$key"
-        return 0  # TODO early leave
-        ;;
+    '') : ;;
     -)
         $DATA ..set ..$hash "$key"
         ;;
@@ -418,6 +420,7 @@ delete-plan)
     <$TMP/r_del $DATA ..set ..$CONF_HASH $PURSUIT_KEY
     $DATA ..key $CONF_HASH $OPEN_KEY | grep -v $hash >$TMP/o_del
     <$TMP/o_del $DATA ..set ..$CONF_HASH $OPEN_KEY
+    $DATA ..delete ..$hash
     ;;
 complete)
     _handle_plan "$@"
@@ -454,9 +457,15 @@ add)
     $DATA ..add-list ..$target ..$source "$PROC_KEY" ${3:-e.1} >/dev/null
     ;;
 stash)
-    hash=$($DATA ..id n.)
-    echo "$*" | $DATA ..set ..$hash "$NAME_KEY" >/dev/null
-    $DATA ..add-set ..$CONF_HASH ..$hash "$STASH_KEY" >/dev/null
+    if test -z "$1" 
+    then
+        $DATA ..show-set ..$CONF_HASH "$STASH_KEY" \
+            | $DATA ..append @$NAME_KEY 
+    else
+        hash=$($DATA ..id n.)
+        echo "$*" | $DATA ..set ..$hash "$NAME_KEY" >/dev/null
+        $DATA ..add-set ..$CONF_HASH ..$hash "$STASH_KEY" >/dev/null
+    fi
     ;;
 remove-pursuit)
     _handle_pursuit "$@"
@@ -465,10 +474,6 @@ remove-pursuit)
 remove)
     _handle_target_source "$@"
     $DATA ..remove-list ..$target ..$source "$PROC_KEY" >/dev/null
-    ;;
-show-stash)
-    $DATA ..show-set ..$CONF_HASH "$STASH_KEY" \
-        | $DATA ..append @$NAME_KEY 
     ;;
 move) 
      _handle_target_source_dest "$@"
@@ -509,7 +514,7 @@ tree)
 help)
     echo you are currently helpless
     ;;
-overview) # -> deets
+overview) 
     $DATA ..key $CONF_HASH $PURSUIT_KEY | cut -d'|' -f1 | while read _h
     do
         _display_plan $_h

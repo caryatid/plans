@@ -33,6 +33,7 @@ $PLAN add o. n.design
 $PLAN add o. n.code
 $PLAN add o. n.missions
 
+
 $PLAN pursuit n.chef home
 $PLAN add o. n.equipment
 $PLAN add o. n.meals
@@ -46,5 +47,13 @@ $PLAN pursuit 'n.teach christina' programming
 $PLAN add o. 'n.shell'
 $PLAN add o. 'n.other languages'
 $PLAN add o. 'n.improve plan.sh'
+
+$PLAN pursuit 'n.plans program' programming
+$PLAN add o. '_.improve plan.sh'
+$PLAN add o. 'n.archive'
+$PLAN add i.o.:e.1 'n.save'
+$PLAN add i.o.:e.1 'n.restore'
+$PLAN add o. 'n.finalize end to end'
+
 
 $PLAN tops | $PLAN tree
