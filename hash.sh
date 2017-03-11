@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 seed=$(dd if=/dev/urandom bs=255 count=1 2>/dev/null | tr \\0 \ )
 count=0
 CORE=./core.sh
@@ -42,28 +41,20 @@ _parse_key () {
     local key=''
     test -z "$1" && return 1
     local hash=$1
-    k=${2:-'.*'}
-    key=$(_list_hkeys $hash | grep "^$k\$")
+    k="${2:-.*}"
+    echo "$k" | grep -q '^\.\.' && key="${k#..}"
     test -z "$key" && key=$(_list_hkeys $hash | grep "$k")
-    if test -z "$key" && test -n "$2"
-    then
-        _get_key $hash "$k" >/dev/null
-        key="$k"
-    fi
     $CORE return-parse "$key" "$k"
 }
 
-HASH_LIST=''  # cache of hashlist indicator
-              # could just check size of $TMP/hashes ?
 _list_hashes () {
-    test -n "$HASH_LIST" && { cat $TMP/hashes; return 0 ;}
     find $HDIR -type d | sed "s#^$HDIR##" | grep '../.\{38\}$' | tr -d '/' \
         | tee $TMP/hashes
-    HASH_LIST=1
 }
 
 _list_hkeys () {
-    ls "$(_get_hdir $1)" | sort | tr '\n' '\0' | xargs -0 -n1
+    ls "$(_get_hdir $1)" | sort | tr '\n' '\0' | xargs -0 -n1 \
+        | sed '/^[[:space:]]*$/d'
 }
 
 _match_hash () {
@@ -78,14 +69,14 @@ _match_hash () {
 }
 
 _match_key () {
-    key_pattern=${1:-'.*'}
-    val_pattern=${2:-'.*'}
+    local key_pattern=${1:-'.*'}
+    local val_pattern=${2:-'.*'}
     for h in $(_list_hashes)
     do
         _list_hkeys $h | grep "${key_pattern}" >$TMP/hkeys
         while read k
         do 
-            hkey=$(_get_hkey $h "$k")
+            local hkey=$(_get_hkey $h "$k")
             grep -q -v "$val_pattern" "$hkey" && continue
             echo $h | _append "$k" | _append @"$k" 
         done <$TMP/hkeys
@@ -166,9 +157,9 @@ _handle_hash () {
 }
 
 _handle_hash_key () {  
-    _handle_hash "$1" "$3"
+    local h="$1"
     local header=$($CORE make-header key "$3")
-    key=$(_parse_key $hash "$2") || { $CORE err-msg "$key" "$header" $?; exit $? ;}
+    key=$(_parse_key $h "$2") || { $CORE err-msg "$key" "$header" $?; exit $? ;}
 }
 
 cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
@@ -182,12 +173,14 @@ delete)
     _rm_hash $hash
     ;;
 delete-key)
-    _handle_hash_key "$1" "$2"
+    _handle_hash "$1"
+    _handle_hash_key $hash "$2"
     hkey=$(_get_hkey $hash "$key")
     rm "$hkey"
     ;;
 edit)
-    _handle_hash_key "$1" "$2"
+    _handle_hash "$1"
+    _handle_hash_key $hash "$2"
     _edit_key $hash "$key"
     ;;
 list-hashes) 
@@ -201,11 +194,13 @@ id)
     echo $hash
     ;;
 set)  
-    _handle_hash_key "$1" "$2"
+    _handle_hash "$1"
+    _handle_hash_key $hash "$2"
     _set_key $hash "$key"
     ;;
 key)
-    _handle_hash_key "$1" "$2"
+    _handle_hash "$1"
+    _handle_hash_key $hash "$2"
     _get_key $hash "$key"
     ;;
 parse-hash)
