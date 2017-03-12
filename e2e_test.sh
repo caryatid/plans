@@ -31,11 +31,12 @@ $PLAN pursuit n.fiction ..reading
 $PLAN add o. n.erikson
 $PLAN note o. n think about what to read
 
+$PLAN pursuit n.gaming-machine ..games
+
 $PLAN pursuit n.automata ..games
 $PLAN add o. n.design
 $PLAN add o. n.code
 $PLAN add o. n.missions
-$PLAN add o. n.gaming-maching
 
 
 $PLAN pursuit n.chef ..home
@@ -68,6 +69,11 @@ $PLAN add o. 'n.archive'
 $PLAN add i.o.:e.1 'n.save'
 $PLAN add i.o.:e.1 'n.restore'
 $PLAN add o. 'n.finalize end to end'
+$PLAN add o. n.ideas
+$PLAN open i.o.:e.1
+$PLAN add o. 'n.serialization'
+$PLAN add o. 'n.pipe commands'
+$PLAN add o. 'n.api'
 $PLAN add o. 'n.Makefile'
 
 

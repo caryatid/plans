@@ -62,7 +62,7 @@ _parse_plan () {
                    | cut -d'|' -f2)
         else
             local _h=''
-            _h=$($DATA ..show-ref ..$CONF_HASH ..$OPEN_KEY "..$pattern")
+            _h=$($DATA ..show-ref ..$CONF_HASH ..$OPEN_KEY "$pattern")
             case $? in
             0)
                 hash=$(echo "$_h" | cut -d'|' -f2)
@@ -155,7 +155,7 @@ _parse_plan () {
     $CORE return-parse "$hash" "$h" 
 }
 
-_parse_note () {
+_parse_note () { # TODO
     local hash="$1"; shift
     local note=''
     local pattern="${1:-.*}"
@@ -222,7 +222,7 @@ _get_parents () {
     done
 }
 
-_display_plan () {
+_display_plan () { # TODO 
     # -> { name, pursuits, open, status, notes }
     local hash=$1; local depth=${2:-2}
     printf "$HEADER" name
@@ -480,7 +480,6 @@ move)
     $DATA ..add-list ..$dest ..$source "..$PROC_KEY" ${3:-e.1} >/dev/null
     ;;
 tops)
-    _output_header
     _tops | while read h
     do
         _list_children $h "$1" 
@@ -498,7 +497,6 @@ delete-note)
     ;;
 list) 
     _handle_plan "$@"; shift
-    #_output_header | $DATA ..append depth | $DATA ..append name
     _list_children $hash "$@"  | $DATA ..append @$NAME_KEY
     ;;
 sort)

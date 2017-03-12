@@ -19,9 +19,6 @@ _parse_index () {
     local pattern=$(echo "$i" | cut -c3-)
     test -z "$pattern" && pattern=0
     case "$prefix" in
-    s.)
-        idx=$pattern
-        ;;
     e.)
         idx=$(( $max + 1 - $pattern ))
         ;;
@@ -75,12 +72,12 @@ _ref_set () {
     <$TMP/reftmp grep -v '^[[:space:]]*$' | $HASH ..set ..$hash "..$key"
 }
 
-_ref_rem () { # TODO
+_ref_rem () {
     local hash=$1; local key="$2"; local ref="$3"
     $HASH ..key ..$hash "..$key" | grep -v "^$ref\|" >$TMP/reftmp
     <$TMP/reftmp $HASH ..set ..$hash "..$key"
 }
-        
+
 _set_list_find () {
     local thash=$1; local shash=$2; local name="$3"
     local idx=$($HASH ..key ..$thash "..$name" | grep -n $shash | cut -d':' -f1)
@@ -88,7 +85,7 @@ _set_list_find () {
     echo "$idx"
     return 0
 } 
-    
+
 _list_range () {
     local hash=$1; local name="$2"; local lower=$3; local upper=$4
     test $lower -eq 0 && lower=1
@@ -165,17 +162,9 @@ _exe_set_interpreter () {
 _execute () { local hash=$1; local name="$2"; shift; shift
     local interpreter=$($HASH ..key ..$hash "..$name.x")
     interpreter="${interpreter:-sh -s -}"
-    # TODO likely need to be "smarter" here
     $HASH ..key ..$hash "..$name" | $interpreter "$@"
 }
     
-_reap_souls () {
-    local hash=$1; local name="$2"
-    local exists=$($HASH ..list-hashes)
-    _set_get $hash $name | grep -e"$exists" >$TMP/set
-    $HASH ..set ..$hash "..$name" <$TMP/set
-}
-
 _handle_hash () {
     local header=$($CORE make-header hash "$2")
     hash=$($HASH ..parse-hash "$1") || { $CORE err-msg "$hash" "$header" $?; exit $? ;}

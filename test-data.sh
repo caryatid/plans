@@ -21,13 +21,14 @@ _rnd_words () {
     done
 }
 
-for x in $(seq 10); do $DATA add-set ..$TOP n. ..set ; done
-for x in $(seq 10); do $DATA add-list ..$TOP n. ..list; done
 
-for x in $(_rnd_words 10)
+for x in $(_rnd_words 100)
 do
     $DATA add-ref ..$TOP n. ..ref "..$x"
 done
+for x in $(seq 10); do $DATA add-set ..$TOP n. ..set ; done
+for x in $(seq 10); do $DATA add-list ..$TOP n. ..list; done
+
 $DATA ..key ..$TOP ..ref
 
 $DATA parse-refname ..$TOP ..ref | while read r
@@ -50,11 +51,11 @@ echo
 
 for i in $(seq $($DATA ..len-list ..$TOP ..list))
 do
-    $DATA at-index-list ..$TOP ..list s.$i
+    $DATA at-index-list ..$TOP ..list $i
     $DATA cursor-list ..$TOP ..list e.$i
 done
 
-$DATA range-list ..$TOP ..list s.2 e.3
+$DATA range-list ..$TOP ..list 2 e.3
 
 $DATA bool ..$TOP ..bool toggle
 $DATA bool ..$TOP ..bool false
@@ -63,6 +64,10 @@ $DATA bool ..$TOP ..bool true
 $DATA show-set ..$TOP ..set | while read sm
 do
     $DATA ..remove-set ..$TOP "..$sm" ..set
+done
+$DATA ..show-list ..$TOP ..list | while read lm
+do
+    $DATA ..index-list ..$TOP "..$lm" ..list
 done
 $DATA ..show-list ..$TOP ..list | while read lm
 do
