@@ -74,7 +74,7 @@ _ref_set () {
 
 _ref_rem () {
     local hash=$1; local key="$2"; local ref="$3"
-    $HASH key ..$hash "..$key" | grep -v "^$ref\|" >$TMP/reftmp
+    $HASH key ..$hash "$key" | grep -v "^$ref|" >$TMP/reftmp
     <$TMP/reftmp $HASH set ..$hash "..$key"
 }
 

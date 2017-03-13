@@ -2,44 +2,58 @@ TMP=$(mktemp -d)
 trap "rm -Rf $TMP" EXIT
 PLAN="./plan.sh -D$TMP/.plans"
 
-$PLAN pursuit 'n.studio' ..musician
-$PLAN add o. 'n.room build out'
-$PLAN add o. 'n.determine deck'
+$PLAN open 'n.build out' 
+$PLAN add o. 'n.construction'
+$PLAN add o. 'n.gear'
+$PLAN add o. 'n.recording tests'
+$PLAN add 'n.studio' o.
 
-$PLAN pursuit 'n.spanish' ..language
-$PLAN add o. 'n.pick movies'
+$PLAN open 'n.learn-spanish'
+$PLAN add o. 'n.find movies'
 
-$PLAN pursuit 'n.woodworking' ..home
+$PLAN open n.woodworking
 $PLAN add o. 'n.kitty door'
 
-$PLAN pursuit n.haskell ..programming
-$PLAN add o. 'n.road to math book'
+$PLAN open n.haskell
+$PLAN add o. 'n.road to math book' 
 
-$PLAN pursuit n.lua programming
+$PLAN stash learn lua
 
-$PLAN pursuit n.gurgeh ..games
-$PLAN add o. n.design
-$PLAN add o. n.code
-$PLAN note o. design composing in ascii?
-$PLAN note o. design seperate game and display?
+$PLAN stash learn how other programs parse
+$PLAN add  i.s.:1 'n.redis'
+$PLAN add  i.s.:1 'n.nethack'
+$PLAN add  i.s.:1 'n.shell'
 
-$PLAN pursuit n.philosophy ..reading
+$PLAN open n.gurgeh 
+$PLAN add o. 'n.intent'
+$PLAN add o. 'n.model'
+$PLAN add i.o.:e.1 'n.engine'
+$PLAN add i.o.:e.1 'n.assets'
+$PLAN add i.o.:e.1 'n.interface/api'
+$PLAN add o. 'n.story'
+$PLAN note o. 'design composing in ascii?'
+$PLAN note o. 'design seperate game and display?'
+
+$PLAN open n.philosophy
 $PLAN add o. n.baudrillard
 $PLAN add o. 'n.critical theory'
 
-$PLAN pursuit n.fiction ..reading
+$PLAN open n.fiction
 $PLAN add o. n.erikson
 $PLAN note o. n think about what to read
 
-$PLAN pursuit n.gaming-machine ..games
+$PLAN open n.gaming-machine
 
-$PLAN pursuit n.automata ..games
+$PLAN open n.automata
 $PLAN add o. n.design
 $PLAN add o. n.code
 $PLAN add o. n.missions
 
+$PLAN add n.gaming o.
 
-$PLAN pursuit n.chef ..home
+$PLAN add _.gaming$ '_.gaming-machine'
+
+$PLAN open n.chef 
 $PLAN add o. n.equipment
 $PLAN add o. n.technique
 $PLAN add i.o.:e.1 n.stock
@@ -54,16 +68,16 @@ $PLAN add '_.chicken and soup' '_.squash soup'
 $PLAN note o. n link recipes into meals by name
 $PLAN note o. n force a schedule
 
-$PLAN pursuit n.cycle-tour ..body
+$PLAN open n.cycle-tour 
 $PLAN add o. n.equipment
 $PLAN add o. n.fitness
 
-$PLAN pursuit 'n.teach christina' ..programming
+$PLAN open 'n.teach christina'
 $PLAN add o. 'n.shell'
 $PLAN add o. 'n.other languages'
 $PLAN add o. 'n.improve plan.sh'
 
-$PLAN pursuit 'n.plans program' ..programming
+$PLAN open 'n.plans program'
 $PLAN add o. '_.improve plan.sh'
 $PLAN add o. 'n.archive'
 $PLAN add i.o.:e.1 'n.save'

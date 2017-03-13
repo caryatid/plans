@@ -19,8 +19,8 @@ _parse_hash () {
     case $prefix in 
     m.) 
         echo "$pattern" | grep -q -v ':' && pattern="${pattern}:"
-        local key=$(echo "$pattern" | cut -d':' -f1)
-        local match=$(echo "$pattern" | cut -d':' -f2)
+        local key=$(echo "$pattern" | cut -d':' -f1 | xargs)
+        local match=$(echo "$pattern" | cut -d':' -f2 | xargs)
         hash=$(_match_key "$key" "$match")
         ;;
     n.)  
@@ -70,20 +70,22 @@ _match_hash () {
 
 _match_key () {
     local key_pattern=${1:-'.*'}
-    local val_pattern=${2:-'.*'}
+    local val_pattern="$2"
     for h in $(_list_hashes)
     do
-        _list_hkeys $h | grep "${key_pattern}" >$TMP/hkeys
-        while read k
+        _list_hkeys $h | grep "$key_pattern" |  while read k
         do 
             local hkey=$(_get_hkey $h "$k")
-            grep -q -v "$val_pattern" "$hkey" && continue
+            if test -n "$val_pattern"
+            then 
+                test ! -s "$hkey" && continue
+                grep -q "$val_pattern" "$hkey" || continue
+            fi
             echo $h | _append "$k" | _append @"$k" 
-        done <$TMP/hkeys
+        done
     done 
 }
 
-### operations
 _gen_hash () {
     echo -n $count$seed | sha1sum | cut -d' ' -f1 | tr -d '\n'
     count=$(( $count + 1 ))
@@ -162,10 +164,7 @@ _handle_hash_key () {
     key=$(_parse_key $h "$2") || { $CORE err-msg "$key" "$header" $?; exit $? ;}
 }
 
-cmd=$($CORE parse-cmd "$0" "$1") || { $CORE err-msg "$cmd" \
-        "$($CORE make-header command hash)" $?; exit $? ;}
-
-
+cmd="$1"
 test -n "$1" && shift
 case "$cmd" in
 delete)
