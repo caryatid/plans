@@ -452,7 +452,7 @@ overview)
     :
     ;;
 archive)
-    file=${1:-$HOME}/$(basename "$PWD")-$(date -I +%a-%d-%m-%Y).tbz
+    file=${1:-$HOME}/$(basename "$PWD")-$(date +%a-%d-%m-%Y).tbz
     cd "$PDIR"
     find . -name 00 -prune -o -type f -print0 | xargs -0 tar -c | bzip2 >"$file"
     ;;
