@@ -78,17 +78,24 @@ $PLAN add o. 'n.other languages'
 $PLAN add o. 'n.improve plan.sh'
 
 $PLAN open 'n.plans program'
-$PLAN add o. '_.improve plan.sh'
-$PLAN add o. 'n.archive'
-$PLAN add i.o.:e.1 'n.save'
-$PLAN add i.o.:e.1 'n.restore'
+$PLAN add o. 'n.overview'
+$PLAN add o. 'n.display plan'
+$PLAN add o. 'n.command outputs'
 $PLAN add o. 'n.finalize end to end'
+$PLAN add o. 'n.Makefile'
 $PLAN add o. n.ideas
 $PLAN open i.o.:e.1
 $PLAN add o. 'n.serialization'
+$PLAN add i.o.:e.1 'n.simple redis protocol?'
+$PLAN add o. 'n.bookmark queries'
+cat <<'EOF' | $PLAN note i.o.:e.1 details -
+bookmark queries: 
+the query string not the result is what
+gets remembered
+EOF
 $PLAN add o. 'n.pipe commands'
 $PLAN add o. 'n.api'
-$PLAN add o. 'n.Makefile'
+$PLAN add o. 'n.full tests'
 
 
 $PLAN tops | $PLAN tree

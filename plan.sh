@@ -10,7 +10,6 @@ echo "$1" | grep -q "^-D" && { PDIR=$(echo "$1" | cut -c3-); shift ;}
 test -d "$PDIR" || mkdir -p "$PDIR"
 DATA="./data.sh -D$PDIR"
 
-
 NAME_KEY=__n_
 OPEN_KEY=__g_
 PROC_KEY=__p_ 
