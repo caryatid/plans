@@ -439,6 +439,9 @@ stash)
         $DATA add-list ..$CONF_HASH ..$hash "..$PROC_KEY" 0 >/dev/null
     fi
     ;;
+remove-tree)
+    :
+    ;;
 tops)
     _tops | while read h
     do
@@ -449,13 +452,13 @@ overview)
     :
     ;;
 archive)
-    file=${1:-$HOME}/$(basename "$PWD")-$(date -I +%a-%d-%m-%Y).pa.tgz
+    file=${1:-$HOME}/$(basename "$PWD")-$(date -I +%a-%d-%m-%Y).tbz
     cd "$PDIR"
     find . -name 00 -prune -o -type f -print0 | xargs -0 tar -c | bzip2 >"$file"
     ;;
 unarchive)
-    test -z "$1" && echo must hand archive file
-    test -f "$1" && echo must be a bzip2 tar file
+    test -z "$1" && { echo must hand archive file; exit 1 ;}
+    test -f "$1" || { echo must be a bzip2 tar file; exit 1 ;}
     case "$1" in
     /*) file="$1";;
     *) file="$PWD/$1";;

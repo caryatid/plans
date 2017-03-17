@@ -83,10 +83,12 @@ $PLAN add o. 'n.overview'
 $PLAN add o. 'n.display plan'
 $PLAN add o. 'n.query output'
 $PLAN add o. 'n.command outputs'
+$PLAN add o. 'n.archive file name'
 $PLAN add o. 'n.finalize end to end'
 $PLAN add o. 'n.Makefile'
 $PLAN add o. n.ideas
 $PLAN open i.o.:e.1
+$PLAN add o. 'n.list should not show index; for simpler manipulation'
 $PLAN add o. 'n.serialization'
 $PLAN add i.o.:e.1 'n.simple redis protocol?'
 $PLAN add o. 'n.bookmark queries'
