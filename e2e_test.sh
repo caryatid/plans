@@ -78,8 +78,10 @@ $PLAN add o. 'n.other languages'
 $PLAN add o. 'n.improve plan.sh'
 
 $PLAN open 'n.plans program'
+$PLAN add o. 'n.work out plans dir'
 $PLAN add o. 'n.overview'
 $PLAN add o. 'n.display plan'
+$PLAN add o. 'n.query output'
 $PLAN add o. 'n.command outputs'
 $PLAN add o. 'n.finalize end to end'
 $PLAN add o. 'n.Makefile'
@@ -97,5 +99,5 @@ $PLAN add o. 'n.pipe commands'
 $PLAN add o. 'n.api'
 $PLAN add o. 'n.full tests'
 
-
+$PLAN archive
 $PLAN tops | $PLAN tree

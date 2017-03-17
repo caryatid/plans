@@ -451,7 +451,17 @@ overview)
 archive)
     file=${1:-$HOME}/$(basename "$PWD")-$(date -I +%a-%d-%m-%Y).pa.tgz
     cd "$PDIR"
-    tar -czf "$file" .
+    find . -name 00 -prune -o -type f -print0 | xargs -0 tar -c | bzip2 >"$file"
+    ;;
+unarchive)
+    test -z "$1" && echo must hand archive file
+    test -f "$1" && echo must be a bzip2 tar file
+    case "$1" in
+    /*) file="$1";;
+    *) file="$PWD/$1";;
+    esac
+    cd "$PDIR"
+    bzip2 -cd "$file" | tar -x
     ;;
 list) 
     _handle_plan "$@"; shift
