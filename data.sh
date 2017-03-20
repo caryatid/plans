@@ -4,7 +4,7 @@ CORE=./core.sh
 TMP=$(mktemp -d)
 trap 'rm -Rf $TMP' EXIT
 
-HDIR=.hash
+HDIR="$HOME/.hash"
 echo "$1" | grep -q "^-D" && { HDIR=$(echo "$1" | cut -c3-); shift ;}
 test -d "$HDIR" || mkdir -p "$HDIR"
 HASH="./hash.sh -D$HDIR"
