@@ -140,7 +140,7 @@ _parse_plan () {
     $CORE return-parse "$hash" "$h" 
 }
 
-_parse_note () { # TODO
+_parse_note () {
     local hash="$1"; shift
     local note=''
     local pattern="${1:-.*}"
@@ -190,7 +190,7 @@ _list_children () {
     test $depth -ge $max && return 0
     d=$(_data $hash $parent) 
     local ret=$?
-    echo "$d" | $DATA append $depth 
+    echo "$d" | $DATA append $depth | $DATA append @$NAME_KEY
     test 0 -ne $ret && return 0
     for h in $($DATA show-list ..$hash ..$PROC_KEY)
     do
@@ -207,7 +207,7 @@ _get_parents () {
     done
 }
 
-_display_plan () { # TODO 
+_display_plan () {
     local hash=$1; local depth=${2:-2}
     _headline name
     $DATA key ..$hash ..$NAME_KEY
@@ -237,10 +237,9 @@ _show_tree () {
         local header=''
         local h="$1"; local index="$2"; local cursor="$3"
         local status="$4"; local seen="$5"; local note="$6";
-        local open="$7"; local depth="$8"
+        local open="$7"; local depth="$8"; local name="$9"
         IFS="$_IFS"
         { test -z "$open" && open="$UNMARK" ;} || open="$MARK"
-        local name=$($DATA key ..$h ..$NAME_KEY)
         test "$seen" = "$MARK" && name="]$name["
         test "$cursor" = "$MARK" && name="[$name]"
         local statline=$(printf '%c[%s]' s "$status" \
@@ -349,113 +348,114 @@ _table () {
     column -s'|' -t -o'  ][  '
 }
 
-_log_run () {
-    _show_or_set $CONF_HASH $LOG_KEY "$@" >/dev/null
-    "$@"
-}
-
 cmd="$1"
 test -n "$1" && shift
 case ${cmd:-''} in
 open) 
     _handle_plan "$@"
-    _log_run _open $hash 
+    _open $hash 
     ;;
 show)
     _handle_plan "$@"
-    _log_run _display_plan $hash
+    _display_plan $hash
     ;;
 name)
     _handle_plan "$@"
     test -n "$1" && shift
-    _log_run _show_or_set $hash $NAME_KEY "$@"
+    _show_or_set $hash $NAME_KEY "$@"
     ;;
 status) 
     _handle_plan "$@"; shift
-    _log_run $DATA bool ..$hash ..$STAT_KEY "$1"
+    $DATA bool ..$hash ..$STAT_KEY "$1"
     ;;
 procs)
     _handle_plan "$@"
     test -n "$1" && shift
-    _log_run _list_children $hash "$@" \| _show_tree 
+    _list_children $hash "$@" | _show_tree 
     ;;
 add)
     _handle_target_source "$@"
-    _log_run $DATA remove-list ..$CONF_HASH ..$source ..$PROC_KEY
-    _log_run $DATA add-list ..$target ..$source "..$PROC_KEY" ${3:-e.1}
+    $DATA remove-list ..$CONF_HASH ..$source ..$PROC_KEY
+    $DATA add-list ..$target ..$source "..$PROC_KEY" ${3:-e.1}
+    ;;
+add-open)
+    _handle_target_source "$@"
+    $DATA remove-list ..$CONF_HASH ..$source ..$PROC_KEY
+    $DATA add-list ..$target ..$source "..$PROC_KEY" ${3:-e.1}
+    _open $source
     ;;
 move) 
      _handle_target_source_dest "$@"
-    _log_run $DATA remove-list ..$target ..$source "..$PROC_KEY"
-    _log_run $DATA add-list ..$dest ..$source "..$PROC_KEY" ${4:-e.1}
+    $DATA remove-list ..$target ..$source "..$PROC_KEY"
+    $DATA add-list ..$dest ..$source "..$PROC_KEY" ${4:-e.1}
     ;;
 remove)
     _handle_target_source "$@"
-    _log_run $DATA remove-list ..$target ..$source "..$PROC_KEY"
+    $DATA remove-list ..$target ..$source "..$PROC_KEY"
     ;;
 advance)
     _handle_plan "$@"; shift
-    _log_run $DATA cursor-list ..$hash ..$PROC_KEY "$@"
+    $DATA cursor-list ..$hash ..$PROC_KEY "$@"
     ;;
 complete)
     _handle_plan "$@"
     if test 0 -ne $($DATA parse-index ..$hash ..$PROC_KEY c.)
     then
         h=$($DATA at-index-list ..$hash ..$PROC_KEY c.)
-        _log_run $DATA bool ..$h ..$STAT_KEY true
+        $DATA bool ..$h ..$STAT_KEY true
     fi
-    _log_run $DATA cursor-list ..$hash ..$PROC_KEY
+    $DATA cursor-list ..$hash ..$PROC_KEY
     ;;
 edit)
     _handle_plan "$@"
-    _log_run _organize $hash $PROC_KEY 
+    _organize $hash $PROC_KEY 
     ;;
 note)
     _handle_plan_note "$@"
     shift;shift
-    _log_run _show_or_set $hash "$note" "$@" 
+    _show_or_set $hash "$note" "$@" 
     ;;
 delete-note)
     _handle_plan_note "$@"
     shift;shift
-    _log_run $DATA delete-key ..$hash "$note"
+    $DATA delete-key ..$hash "$note"
     ;;
 delete)
     _handle_plan "$@"
     for h in $($DATA list-hashes)
     do
-        _log_run $DATA remove-list ..$h ..$hash ..$PROC_KEY
+        $DATA remove-list ..$h ..$hash ..$PROC_KEY
     done
-    _log_run $DATA remove-list ..$CONF_HASH ..$hash ..$PROC_KEY
-    _log_run $DATA key ..$CONF_HASH ..$OPEN_KEY | grep -v $hash >$TMP/o_del
-    <$TMP/o_del _log_run $DATA set ..$CONF_HASH ..$OPEN_KEY
-    _log_run $DATA delete ..$hash
+    $DATA remove-list ..$CONF_HASH ..$hash ..$PROC_KEY
+    $DATA key ..$CONF_HASH ..$OPEN_KEY | grep -v $hash >$TMP/o_del
+    <$TMP/o_del $DATA set ..$CONF_HASH ..$OPEN_KEY
+    $DATA delete ..$hash
     ;;
 delete-open) 
     _handle_open "$@"
     echo $open
-    _log_run $DATA remove-ref ..$CONF_HASH ..$OPEN_KEY "$open"
+    $DATA remove-ref ..$CONF_HASH ..$OPEN_KEY "$open"
     ;;
 stash)
     if test -z "$1" 
     then
-        _log_run $DATA show-list ..$CONF_HASH "..$PROC_KEY" \
-            \| $DATA append @$NAME_KEY 
+        $DATA show-list ..$CONF_HASH "..$PROC_KEY" \
+            | $DATA append @$NAME_KEY 
     else
         hash=$(_parse_plan "n.$*")
-        _log_run $DATA add-list ..$CONF_HASH ..$hash "..$PROC_KEY" 0
+        $DATA add-list ..$CONF_HASH ..$hash "..$PROC_KEY" 0
     fi
     ;;
-remove-tree) # TODO
+remove-tree) 
     :
     ;;
 tops)
     _tops | while read h
     do
-        _log_run _list_children $h "$1" 
+        _list_children $h "$1" 
     done
     ;;
-overview) # TODO
+overview)
     :
     ;;
 archive)
@@ -471,11 +471,11 @@ unarchive)
     *) file="$PWD/$1";;
     esac
     cd "$PDIR"
-    _log_run bzip2 -cd "$file" \| tar -x
+    bzip2 -cd "$file" | tar -x
     ;;
 list) 
     _handle_plan "$@"; shift
-    _log_run _list_children $hash "$@" \| $DATA append @$NAME_KEY
+    _list_children $hash "$@"
     ;;
 sort)
     _sort "$@"

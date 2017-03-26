@@ -77,7 +77,7 @@ $PLAN add o. 'n.shell'
 $PLAN add o. 'n.other languages'
 $PLAN add o. 'n.improve plan.sh'
 
-$PLAN open 'n.plans program'
+$PLAN add-open o. 'n.plans program'
 $PLAN add o. 'n.work out plans dir'
 $PLAN add o. 'n.overview'
 $PLAN add i.o.:e.1 'n.history'
@@ -85,22 +85,21 @@ $PLAN add i.o.:e.1 'n.tops'
 $PLAN add o. 'n.display plan'
 $PLAN add o. 'n.query output'
 $PLAN add o. 'n.command outputs'
-$PLAN add o. 'n.archive file name'
+$PLAN add o. 'n.archive with config'
+$PLAN add o. 'n.plan parse recurses fully'
+$PLAN add o. 'n.help'
 $PLAN add o. 'n.finalize end to end'
 $PLAN add o. 'n.Makefile'
 $PLAN add o. n.ideas
 $PLAN open i.o.:e.1
 $PLAN add o. 'n.list should not show index; for simpler manipulation'
-$PLAN add o. 'n.archive with config?'
 $PLAN add o. 'n.serialization'
-$PLAN add i.o.:e.1 'n.simple redis protocol?'
 $PLAN add o. 'n.bookmark queries'
 cat <<'EOF' | $PLAN note i.o.:e.1 details -
 bookmark queries: 
 the query string not the result is what
 gets remembered
 EOF
-$PLAN add o. 'n.pipe commands'
 $PLAN add o. 'n.api'
 $PLAN add o. 'n.full tests'
 
