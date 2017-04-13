@@ -1,6 +1,5 @@
-
 # servers
-QEMU as KVM
+QEMU as KVM?
 recording server
 bookmark server
 media server
@@ -13,6 +12,13 @@ plans server
 music private tracker
 gaming computer
 
+# learning
+read nethack
+haskell book
+category book
+make
+qemu
+
 # programming
 makefile for getting/compiling/pushing everywhere tools
 plans built with C && redis
@@ -20,9 +26,6 @@ determine initial planning pattern
 shell test for dylan and xtina
 automata
 gurgeh
-read nethack
-haskell book
-category book
 
 # reading
 erikson books
@@ -69,7 +72,7 @@ new bank
 get sinks
 plate up the floor drill for network 
 clean garage
-get wireless extenders
+install wireless extenders
 new glasses and eye exam
 check house for future repairs
 fix flat
