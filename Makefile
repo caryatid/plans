@@ -1,0 +1,9 @@
+VERSION := 0.1.0
+
+CFLAGS_STD ?= -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -DNDEBUG
+CFLAGS_STD += -DVERSION=\"${VERSION}\"
+LDFLAGS_STD ?= -lc
+
+
+
+.PHONY: all clean install uninstall test

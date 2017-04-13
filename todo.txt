@@ -1,0 +1,97 @@
+
+# servers
+QEMU as KVM
+recording server
+bookmark server
+media server
+image upload server
+git server
+mail server
+plans server
+
+# media
+music private tracker
+gaming computer
+
+# programming
+makefile for getting/compiling/pushing everywhere tools
+plans built with C && redis
+determine initial planning pattern
+shell test for dylan and xtina
+automata
+gurgeh
+read nethack
+haskell book
+category book
+
+# reading
+erikson books
+ancient greece book
+mishima quad
+baudrillard
+critical theory
+
+# garden
+remove pie slice bushes
+clear new garden grass
+clear pie slice grass
+move elderberry and fig tree
+brick patio
+brick paths
+slate or other stone for temporary paths
+arborvitea fence
+half barrels for planting
+edging
+hydragea near front door
+clear bushes around quince tree
+
+# studio
+clean studio
+mic set-up
+sound proofing
+walls and door for studio
+studio smoking lounge
+find reel to reel
+
+# planning -- maybe this is "stash"
+plan reading list
+plan sensation vs experience album
+plan specific meals 
+plan and list spanish, french, japanese, movies to learn with
+plan bike camping trip
+plan out daily behavior -- cleanliness, exercise, meditation
+plan out woodworking 
+
+# chores
+record want list
+new kitty vet
+new bank
+get sinks
+plate up the floor drill for network 
+clean garage
+get wireless extenders
+new glasses and eye exam
+check house for future repairs
+fix flat
+clean bike
+fix front derailleur
+get travel bike fix bundle together
+kitty door
+marika car flooding issue
+break down ramp
+new hook for shower rack
+get panniers
+bike fenders
+bookshelf for basement
+security cameras
+
+# correspondence
+letter to pops
+
+# writing
+right wing is dada paper
+vault 7 investigation
+hector and hestor :: blue castle red castle
+
+
+
