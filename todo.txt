@@ -62,6 +62,7 @@ RoF
 
 # learning
 make
+awk
 read nethack sources
 haskell book
 category book
